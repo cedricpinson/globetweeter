@@ -57,10 +57,12 @@ function createTextureText(str, texture)
     var t;
     if (texture !== undefined) {
         t = texture;
-        t.setFromCanvas(TextRenderingCanvas);
     } else {
-        t = osg.Texture.createFromCanvas(TextRenderingCanvas);
+        t = new osg.Texture();
+        t.setMinFilter('LINEAR');
     }
+    t.setFromCanvas(TextRenderingCanvas);
+
     t.texture_text = str;
     return t;
 }

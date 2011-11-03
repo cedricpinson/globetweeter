@@ -447,7 +447,7 @@ TweetDisplayCallback.prototype = {
                 var rr = 1.0 - (this.manipulator.height-this.limit) * 0.8/(2.5*this.WGS_84_RADIUS_EQUATOR-this.limit);
                 scale *= rr;
             }
-            node.setMatrix(osg.Matrix.mult(osg.Matrix.makeScale(scale, scale, scale),node.originalMatrix));
+            node.setMatrix(osg.Matrix.mult(node.originalMatrix, osg.Matrix.makeScale(scale, scale, scale), []));
         }
 
         var value = (1.0 - osgAnimation.EaseInQuad(ratio));
@@ -520,7 +520,7 @@ YouAreHereDisplayCallback.prototype = {
             var rr = 1.0 - (this.manipulator.height-this.limit) * 0.8/(2.5*this.WGS_84_RADIUS_EQUATOR-this.limit);
             scale *= rr;
         }
-        node.setMatrix(osg.Matrix.mult(osg.Matrix.makeScale(scale, scale, scale),node.originalMatrix));
+        node.setMatrix(osg.Matrix.mult(node.originalMatrix, osg.Matrix.makeScale(scale, scale, scale), []));
 
         //var uniform = node.uniform;
         //var value2 = 1.0 - osgAnimation.EaseInQuad(ratio);
@@ -761,12 +761,30 @@ function displayHtmlTweetContent(tweet)
 
 function createScene()
 {
+    var optionsURL = function() {
+        var vars = [], hash;
+        var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+        for(var i = 0; i < hashes.length; i++)
+        {
+            hash = hashes[i].split('=');
+            vars.push(hash[0]);
+            vars[hash[0]] = hash[1];
+        }
+        return vars;
+    };
+
     var getHeightShader = getHeightShaderVolume;
-    var numTexturesAvailableInVertexShader = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS);
-    osg.log("Nb Texture Unit in vertex shader " + numTexturesAvailableInVertexShader);
-    if (numTexturesAvailableInVertexShader < 1) {
-        osg.log("VolumeWave disabled because your OpenGL implementation has " + numTexturesAvailableInVertexShader + " vertex texture units and wave option require at least 1");
+    var options = optionsURL();
+    if (options['WaveFlat'] === "1") {
         getHeightShader = getHeightShaderFlat;
+    } else {
+
+        var numTexturesAvailableInVertexShader = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS);
+        osg.log("Nb Texture Unit in vertex shader " + numTexturesAvailableInVertexShader);
+        if (numTexturesAvailableInVertexShader < 1) {
+            osg.log("VolumeWave disabled because your OpenGL implementation has " + numTexturesAvailableInVertexShader + " vertex texture units and wave option require at least 1");
+            getHeightShader = getHeightShaderFlat;
+        }
     }
 
     jQuery("#background").val(num2hex([0,0,0,0]));
@@ -788,6 +806,7 @@ function createScene()
     var world1 = osg.ParseSceneGraph(getWorld());
     var country = osg.ParseSceneGraph(getCountry());
     var coast = osg.ParseSceneGraph(getCoast());
+
 
     world.setStateSet(getWorldShader());
     world.setNodeMask(2);
@@ -822,7 +841,7 @@ function createScene()
     scene.addChild(world);
     scene.addChild(world1);
     scene.addChild(country);
-
+//    scene.addChild(frontTweets);
 
 
     world.getOrCreateStateSet().setAttributeAndMode(new osg.BlendFunc('ONE', 'ONE_MINUS_SRC_ALPHA'));
@@ -1003,7 +1022,6 @@ function createScene()
     var globalDuration = (new Date()).getTime()/1000.0;
 
     var consumeTweet = function(tweet) {
-        //osg.log(tweet);
         var displayTweet = function(location, tweet) {
 
             if (numberOfTweets % 5 === 0) {
@@ -1095,8 +1113,14 @@ function createScene()
                         }
                     }
                 };
-                img.src = tweet.user.profile_image_url;
-                //img.src = "http://plopbyte.net/tmp/ff-demo/line.png";
+                //img.src = tweet.user.profile_image_url;
+                // temporary
+                var src = "img/tweet.png";
+                if (StreamConnected === 0) {
+                    var basename = tweet.user.profile_image_url.split('/').pop();
+                    src = "localtweets/" + basename;
+                }
+                img.src = src;
             }
         };
 

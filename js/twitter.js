@@ -74,7 +74,7 @@ var processTweet = function (tweet) {
         for (var i = 0, l = TweetFilter.length ; i < l; i++) {
             var id = TweetFilter[i];
             if (id === currentTweetId) {
-                //osg.log("found a duplicate of id " + currentTweetId + " discard it");
+                osg.log("found a duplicate of id " + currentTweetId + " discard it");
                 return;
             }
         }

@@ -1,21 +1,17 @@
 /** -*- compile-command: "jslint-cli osgUtil.js" -*-
  *
- * Copyright (C) 2010 Cedric Pinson
+ *  Copyright (C) 2010 Cedric Pinson
  *
+ *                  GNU LESSER GENERAL PUBLIC LICENSE
+ *                      Version 3, 29 June 2007
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * any later version.
+ * Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
+ * Everyone is permitted to copy and distribute verbatim copies
+ * of this license document, but changing it is not allowed.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This version of the GNU Lesser General Public License incorporates
+ * the terms and conditions of version 3 of the GNU General Public
+ * License
  *
  * Authors:
  *  Cedric Pinson <cedric.pinson@plopbyte.net>
@@ -59,9 +55,8 @@ osgUtil.TriangleIntersect.prototype = {
         var idx;
         var v0,v1,v2;
         var i;
-        var l = node.primitives.length;
         this.index = 0;
-        for (i = 0; i < l; i++) {
+        for (i = 0, l = node.primitives.length; i < l; i++) {
             primitive = node.primitives[i];
             if (primitive.getIndices !== undefined) {
                 vertexes = node.getAttributes().Vertex.getElements();
@@ -227,7 +222,7 @@ osgUtil.TriangleIntersect.prototype = {
         if (d>this.length) {return;}
 
         var normal = osg.Vec3.cross(v12,v23);
-        osg.Vec3.normalize(normal);
+        osg.Vec3.normalize(normal, normal);
 
         var r = d/this.length;
 
@@ -281,10 +276,9 @@ osgUtil.IntersectVisitor.prototype = osg.objectInehrit(osg.NodeVisitor.prototype
         return true;
     },
     pushModelMatrix: function(matrix) {
-        //osg.log("push Matrix " + matrix.toString());
         if (this.matrix.length > 0 ) {
             var m = osg.Matrix.copy(this.matrix[this.matrix.length-1]);
-            osg.Matrix.preMult(m,matrix);
+            osg.Matrix.preMult(m, matrix);
             this.matrix.push(m);
         } else {
             this.matrix.push(matrix);
@@ -331,7 +325,6 @@ osgUtil.IntersectVisitor.prototype = osg.objectInehrit(osg.NodeVisitor.prototype
 
     applyNode: function(node) {
         if (node.getMatrix) {
-            //osg.log("node " + node.getName());
             this.pushModelMatrix(node.getMatrix());
         }
 
@@ -349,8 +342,8 @@ osgUtil.IntersectVisitor.prototype = osg.objectInehrit(osg.NodeVisitor.prototype
                 return;
             }
 
-            var ns = osg.Matrix.preMultVec3(inv, this.start);
-            var ne = osg.Matrix.preMultVec3(inv, this.end);
+            var ns = osg.Matrix.transformVec3(inv, this.start);
+            var ne = osg.Matrix.transformVec3(inv, this.end);
             this.intersectSegmentWithGeometry(ns, ne, node);
         }
 
@@ -387,4 +380,33 @@ osgUtil.IntersectVisitor.prototype = osg.objectInehrit(osg.NodeVisitor.prototype
         }
         return true;
     },
+});
+
+
+
+osgUtil.WireframeVisitor = function() {
+    osg.NodeVisitor.call(this);
+};
+
+osgUtil.WireframeVisitor.prototype = osg.objectInehrit(osg.NodeVisitor.prototype, {
+    
+    apply: function(node) {
+
+        if (node.primitives) {
+            for (var i = 0, l = node.primitives.length; i < l; i++) {
+                var primitive = node.primitives[i];
+                if (primitive.getIndices !== undefined) {
+                    //switch (primitive.getMode()) {
+                        //case
+                    //}
+                }
+            }
+        }
+
+        if (node.traverse) {
+            this.traverse(node);
+        }
+
+    },
+
 });

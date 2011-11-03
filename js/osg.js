@@ -1,58 +1,40 @@
 /** -*- compile-command: "jslint-cli osg.js" -*-
  *
- * Copyright (C) 2010 Cedric Pinson
+ *  Copyright (C) 1998-2006 Robert Osfield - OpenSceneGraph
+ *  Copyright (C) 2010-2011 Cedric Pinson
  *
+ *                  GNU LESSER GENERAL PUBLIC LICENSE
+ *                      Version 3, 29 June 2007
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * any later version.
+ * Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
+ * Everyone is permitted to copy and distribute verbatim copies
+ * of this license document, but changing it is not allowed.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA.
+ * This version of the GNU Lesser General Public License incorporates
+ * the terms and conditions of version 3 of the GNU General Public
+ * License
  *
  * Authors:
- *  Cedric Pinson <cedric.pinson@plopbyte.net>
+ *  Cedric Pinson <cedric.pinson@plopbyte.com>
  *
  */
 var gl;
 var osg = {};
 
-osg.version = '0.0.1';
-osg.copyright = 'Cedric Pinson - cedric.pinson@plopbyte.net';
+osg.version = '0.0.4';
+osg.copyright = 'Cedric Pinson - cedric.pinson@plopbyte.com';
 osg.instance = 0;
 osg.version = 0;
 osg.log = function(str) {
-
     if (window.console !== undefined) {
         window.console.log(str);
     } else {
-        jQuery("#debug").append("<li> + " + str + "</li>");
+        jQuery("#debug").append(str + "<br>");
     }
 };
 osg.reportErrorGL = false;
 
 osg.init = function() {
-    if (Float32Array.set === undefined) {
-        Float32Array.prototype.set = function(array) {
-            for (var i = 0, l = array.length; i < l; ++i ) {
-                this[i] = array[i];
-            }
-        };
-    }
-    if (Int32Array.set === undefined) {
-        Int32Array.prototype.set = function(array) {
-            for (var i = 0, l = array.length; i < l; ++i ) {
-                this[i] = array[i];
-            }
-        };
-    }
 };
 
 osg.checkError = function(error) {
@@ -74,24 +56,9 @@ osg.checkError = function(error) {
     }
 };
 
-osg.initGL = function(canvas) {
-        try {
-            gl = canvas.getContext("experimental-webgl", {antialias : true});
-            //gl = canvas.getContext("experimental-webgl");
-            osg.init();
-        } catch(e) {
-
-        }
-
-        if (!gl) {
-            alert("Could not initialise WebGL, sorry :-(");
-        }
-};
-
 osg.objectInehrit = function(base, extras) {
     function F(){}
     F.prototype = base;
-    F.prototype.superObject = base;
     var obj = new F();
     if(extras)  {osg.objectMix(obj, extras, false); }
     return obj;
@@ -102,6 +69,20 @@ osg.objectMix = function(obj, properties, test){
     }
     return obj;
 };
+
+osg.objectType = {};
+osg.objectType.type = 0;
+osg.objectType.generate = function(arg) {
+    var t = osg.objectType.type;
+    osg.objectType[t] = arg;
+    osg.objectType[arg] = t;
+    osg.objectType.type += 1;
+    return t;
+};
+
+osg.Float32Array = Float32Array;
+osg.Int32Array = Int32Array;
+osg.Uint16Array = Uint16Array;
 
 
 osg.Matrix = {
@@ -116,9 +97,15 @@ osg.Matrix = {
         var rIndex = r * 4;
         return ((a[rIndex + 0] * b[0 + c]) + (a[rIndex + 1] * b[4 + c]) + (a[rIndex +2] * b[8 + c]) + (a[rIndex + 3] * b[12 + c]));
     },
+    innerProductOld: function(a, b, r, c) {
+        var rIndex = r * 4;
+        osg.log("(a["+(rIndex + 0) +"] * b["+ (0 + c) + "]) + (a["+ (rIndex + 1) +"] * b["+ (4 + c) + "]) + (a["+ (rIndex + 2) +"] * b["+ (8 + c) + "]) + (a["+ (rIndex + 3) +"] * b["+ (12 + c) + "]);");
+        return ((a[rIndex + 0] * b[0 + c]) + (a[rIndex + 1] * b[4 + c]) + (a[rIndex +2] * b[8 + c]) + (a[rIndex + 3] * b[12 + c]));
+    },
 
     set: function(matrix, row, col, value) {
-        return matrix[row * 4 + col] = value;
+        matrix[row * 4 + col] = value;
+	return value;
     },
 
     get: function(matrix, row, col) {
@@ -140,7 +127,6 @@ osg.Matrix = {
         if (matrix === undefined) {
             matrix = [];
         }
-
         osg.Matrix.setRow(matrix, 0,    1, 0, 0, 0 );
         osg.Matrix.setRow(matrix, 1,    0, 1, 0, 0 );
         osg.Matrix.setRow(matrix, 2,    0, 0, 1, 0 );
@@ -165,81 +151,247 @@ osg.Matrix = {
         return result;
     },
 
-    /* premult a,b means in math MatrixA = MatrixA * MatrixB*/
+    // do a * b and result in a
     preMult: function(a, b) {
-        var t = [];
-        for (var col = 0; col < 4; col++) {
-            t[0] = osg.Matrix.innerProduct(b, a, 0, col);
-            t[1] = osg.Matrix.innerProduct(b, a, 1, col);
-            t[2] = osg.Matrix.innerProduct(b, a, 2, col);
-            t[3] = osg.Matrix.innerProduct(b, a, 3, col);
-            a[0 + col] = t[0];
-            a[4 + col] = t[1];
-            a[8 + col] = t[2];
-            a[12 + col] = t[3];
-        }
+        var atmp0, atmp1, atmp2, atmp3;
+
+        atmp0 = (b[0] * a[0]) + (b[1] * a[4]) + (b[2] * a[8]) + (b[3] * a[12]);
+        atmp1 = (b[4] * a[0]) + (b[5] * a[4]) + (b[6] * a[8]) + (b[7] * a[12]);
+        atmp2 = (b[8] * a[0]) + (b[9] * a[4]) + (b[10] * a[8]) + (b[11] * a[12]);
+        atmp3 = (b[12] * a[0]) + (b[13] * a[4]) + (b[14] * a[8]) + (b[15] * a[12]);
+        a[0]  = atmp0;
+        a[4]  = atmp1;
+        a[8]  = atmp2;
+        a[12] = atmp3;
+
+        atmp0 = (b[0] * a[1]) + (b[1] * a[5]) + (b[2] * a[9]) + (b[3] * a[13]);
+        atmp1 = (b[4] * a[1]) + (b[5] * a[5]) + (b[6] * a[9]) + (b[7] * a[13]);
+        atmp2 = (b[8] * a[1]) + (b[9] * a[5]) + (b[10] * a[9]) + (b[11] * a[13]);
+        atmp3 = (b[12] * a[1]) + (b[13] * a[5]) + (b[14] * a[9]) + (b[15] * a[13]);
+        a[1]  = atmp0;
+        a[5]  = atmp1;
+        a[9]  = atmp2;
+        a[13] = atmp3;
+
+        atmp0 = (b[0] * a[2]) + (b[1] * a[6]) + (b[2] * a[10]) + (b[3] * a[14]);
+        atmp1 = (b[4] * a[2]) + (b[5] * a[6]) + (b[6] * a[10]) + (b[7] * a[14]);
+        atmp2 = (b[8] * a[2]) + (b[9] * a[6]) + (b[10] * a[10]) + (b[11] * a[14]);
+        atmp3 = (b[12] * a[2]) + (b[13] * a[6]) + (b[14] * a[10]) + (b[15] * a[14]);
+        a[2]  = atmp0;
+        a[6]  = atmp1;
+        a[10] = atmp2;
+        a[14] = atmp3;
+
+        atmp0 = (b[0] * a[3]) + (b[1] * a[7]) + (b[2] * a[11]) + (b[3] * a[15]);
+        atmp1 = (b[4] * a[3]) + (b[5] * a[7]) + (b[6] * a[11]) + (b[7] * a[15]);
+        atmp2 = (b[8] * a[3]) + (b[9] * a[7]) + (b[10] * a[11]) + (b[11] * a[15]);
+        atmp3 = (b[12] * a[3]) + (b[13] * a[7]) + (b[14] * a[11]) + (b[15] * a[15]);
+        a[3]  = atmp0;
+        a[7]  = atmp1;
+        a[11] = atmp2;
+        a[15] = atmp3;
+
         return a;
     },
 
-    /* postmult a,b means in math MatrixA = MatrixB * MatrixA*/
+    // do a * b and result in b
     postMult: function(a, b) {
-        var t = [];
-        for (var row = 0; row < 4; row++) {
-            t[0] = osg.Matrix.innerProduct(a, b, row, 0);
-            t[1] = osg.Matrix.innerProduct(a, b, row, 1);
-            t[2] = osg.Matrix.innerProduct(a, b, row, 2);
-            t[3] = osg.Matrix.innerProduct(a, b, row, 3);
-            this.setRow(a, row, t[0], t[1], t[2], t[3]);
-        }
-        return a;
-    },
+        // post mult
+        btmp0 = (b[0] * a[0]) + (b[1] * a[4]) + (b[2] * a[8]) + (b[3] * a[12]);
+        btmp1 = (b[0] * a[1]) + (b[1] * a[5]) + (b[2] * a[9]) + (b[3] * a[13]);
+        btmp2 = (b[0] * a[2]) + (b[1] * a[6]) + (b[2] * a[10]) + (b[3] * a[14]);
+        btmp3 = (b[0] * a[3]) + (b[1] * a[7]) + (b[2] * a[11]) + (b[3] * a[15]);
+        b[0 ] = btmp0;
+        b[1 ] = btmp1;
+        b[2 ] = btmp2;
+        b[3 ] = btmp3;
 
-    /* mult a,b means in math result = MatrixB * MatrixA */
-    /* mult a,b is equivalent to preMult(b,a) */
-    mult: function(a, b, r) {
+        btmp0 = (b[4] * a[0]) + (b[5] * a[4]) + (b[6] * a[8]) + (b[7] * a[12]);
+        btmp1 = (b[4] * a[1]) + (b[5] * a[5]) + (b[6] * a[9]) + (b[7] * a[13]);
+        btmp2 = (b[4] * a[2]) + (b[5] * a[6]) + (b[6] * a[10]) + (b[7] * a[14]);
+        btmp3 = (b[4] * a[3]) + (b[5] * a[7]) + (b[6] * a[11]) + (b[7] * a[15]);
+        b[4 ] = btmp0;
+        b[5 ] = btmp1;
+        b[6 ] = btmp2;
+        b[7 ] = btmp3;
+
+        btmp0 = (b[8] * a[0]) + (b[9] * a[4]) + (b[10] * a[8]) + (b[11] * a[12]);
+        btmp1 = (b[8] * a[1]) + (b[9] * a[5]) + (b[10] * a[9]) + (b[11] * a[13]);
+        btmp2 = (b[8] * a[2]) + (b[9] * a[6]) + (b[10] * a[10]) + (b[11] * a[14]);
+        btmp3 = (b[8] * a[3]) + (b[9] * a[7]) + (b[10] * a[11]) + (b[11] * a[15]);
+        b[8 ] = btmp0;
+        b[9 ] = btmp1;
+        b[10] = btmp2;
+        b[11] = btmp3;
+
+        btmp0 = (b[12] * a[0]) + (b[13] * a[4]) + (b[14] * a[8]) + (b[15] * a[12]);
+        btmp1 = (b[12] * a[1]) + (b[13] * a[5]) + (b[14] * a[9]) + (b[15] * a[13]);
+        btmp2 = (b[12] * a[2]) + (b[13] * a[6]) + (b[14] * a[10]) + (b[15] * a[14]);
+        btmp3 = (b[12] * a[3]) + (b[13] * a[7]) + (b[14] * a[11]) + (b[15] * a[15]);
+        b[12] = btmp0;
+        b[13] = btmp1;
+        b[14] = btmp2;
+        b[15] = btmp3;
+
+        return b;
+    },
+    multa: function(a, b, r) {
         if (r === a) {
-            return this.postMult(r, b);
+            return this.preMult(a,b);
+        } else if (r === b) {
+            return this.postMult(a,b);
+        } else {
+            if (r === undefined) {
+                r = [];
+            }
+            r[0] =  b[0] * a[0] + b[1] * a[4] + b[2] * a[8] + b[3] * a[12];
+            r[1] =  b[0] * a[1] + b[1] * a[5] + b[2] * a[9] + b[3] * a[13];
+            r[2] =  b[0] * a[2] + b[1] * a[6] + b[2] * a[10] + b[3] * a[14];
+            r[3] =  b[0] * a[3] + b[1] * a[7] + b[2] * a[11] + b[3] * a[15];
+
+            r[4] =  b[4] * a[0] + b[5] * a[4] + b[6] * a[8] + b[7] * a[12];
+            r[5] =  b[4] * a[1] + b[5] * a[5] + b[6] * a[9] + b[7] * a[13];
+            r[6] =  b[4] * a[2] + b[5] * a[6] + b[6] * a[10] + b[7] * a[14];
+            r[7] =  b[4] * a[3] + b[5] * a[7] + b[6] * a[11] + b[7] * a[15];
+
+            r[8] =  b[8] * a[0] + b[9] * a[4] + b[10] * a[8] + b[11] * a[12];
+            r[9] =  b[8] * a[1] + b[9] * a[5] + b[10] * a[9] + b[11] * a[13];
+            r[10] = b[8] * a[2] + b[9] * a[6] + b[10] * a[10] + b[11] * a[14];
+            r[11] = b[8] * a[3] + b[9] * a[7] + b[10] * a[11] + b[11] * a[15];
+
+            r[12] = b[12] * a[0] + b[13] * a[4] + b[14] * a[8] + b[15] * a[12];
+            r[13] = b[12] * a[1] + b[13] * a[5] + b[14] * a[9] + b[15] * a[13];
+            r[14] = b[12] * a[2] + b[13] * a[6] + b[14] * a[10] + b[15] * a[14];
+            r[15] = b[12] * a[3] + b[13] * a[7] + b[14] * a[11] + b[15] * a[15];
+
+            return r;
         }
-        if (r === b) {
-            return this.preMult(r, a);
+    },
+    /* r = a * b */
+    mult: function(a, b, r) {
+        var s00 = b[0];
+        var s01 = b[1];
+        var s02 = b[2];
+        var s03 = b[3];
+        var s10 = b[4];
+        var s11 = b[5];
+        var s12 = b[6];
+        var s13 = b[7];
+        var s20 = b[8];
+        var s21 = b[9];
+        var s22 = b[10];
+        var s23 = b[11];
+        var s30 = b[12];
+        var s31 = b[13];
+        var s32 = b[14];
+        var s33 = b[15];
+
+        var o00 = a[0];
+        var o01 = a[1];
+        var o02 = a[2];
+        var o03 = a[3];
+        var o10 = a[4];
+        var o11 = a[5];
+        var o12 = a[6];
+        var o13 = a[7];
+        var o20 = a[8];
+        var o21 = a[9];
+        var o22 = a[10];
+        var o23 = a[11];
+        var o30 = a[12];
+        var o31 = a[13];
+        var o32 = a[14];
+        var o33 = a[15];
+
+        r[0] =  s00 * o00 + s01 * o10 + s02 * o20 + s03 * o30;
+        r[1] =  s00 * o01 + s01 * o11 + s02 * o21 + s03 * o31;
+        r[2] =  s00 * o02 + s01 * o12 + s02 * o22 + s03 * o32;
+        r[3] =  s00 * o03 + s01 * o13 + s02 * o23 + s03 * o33;
+
+        r[4] =  s10 * o00 + s11 * o10 + s12 * o20 + s13 * o30;
+        r[5] =  s10 * o01 + s11 * o11 + s12 * o21 + s13 * o31;
+        r[6] =  s10 * o02 + s11 * o12 + s12 * o22 + s13 * o32;
+        r[7] =  s10 * o03 + s11 * o13 + s12 * o23 + s13 * o33;
+
+        r[8] =  s20 * o00 + s21 * o10 + s22 * o20 + s23 * o30;
+        r[9] =  s20 * o01 + s21 * o11 + s22 * o21 + s23 * o31;
+        r[10] = s20 * o02 + s21 * o12 + s22 * o22 + s23 * o32;
+        r[11] = s20 * o03 + s21 * o13 + s22 * o23 + s23 * o33;
+
+        r[12] = s30 * o00 + s31 * o10 + s32 * o20 + s33 * o30;
+        r[13] = s30 * o01 + s31 * o11 + s32 * o21 + s33 * o31;
+        r[14] = s30 * o02 + s31 * o12 + s32 * o22 + s33 * o32;
+        r[15] = s30 * o03 + s31 * o13 + s32 * o23 + s33 * o33;
+
+        return r;
+    },
+    multOrig: function(a, b, r) {
+        var t;
+        if (r === a) {
+            // pre mult
+            t = [];
+            for (var col = 0; col < 4; col++) {
+                t[0] = osg.Matrix.innerProduct(b, a, 0, col);
+                t[1] = osg.Matrix.innerProduct(b, a, 1, col);
+                t[2] = osg.Matrix.innerProduct(b, a, 2, col);
+                t[3] = osg.Matrix.innerProduct(b, a, 3, col);
+                a[0 + col] = t[0];
+                a[4 + col] = t[1];
+                a[8 + col] = t[2];
+                a[12 + col] = t[3];
+            }
+            return a;
+            //return this.preMult(r, b);
+        } else if (r === b) {
+            // post mult
+            t = [];
+            for (var row = 0; row < 4; row++) {
+                t[0] = osg.Matrix.innerProduct(b, a, row, 0);
+                t[1] = osg.Matrix.innerProduct(b, a, row, 1);
+                t[2] = osg.Matrix.innerProduct(b, a, row, 2);
+                t[3] = osg.Matrix.innerProduct(b, a, row, 3);
+                this.setRow(b, row, t[0], t[1], t[2], t[3]);
+            }
+            return b;
+            //return this.postMult(r, a);
         }
         if (r === undefined) {
             r = [];
         }
 
-        var s00 = a[0];
-        var s01 = a[1];
-        var s02 = a[2];
-        var s03 = a[3];
-        var s10 = a[4];
-        var s11 = a[5];
-        var s12 = a[6];
-        var s13 = a[7];
-        var s20 = a[8];
-        var s21 = a[9];
-        var s22 = a[10];
-        var s23 = a[11];
-        var s30 = a[12];
-        var s31 = a[13];
-        var s32 = a[14];
-        var s33 = a[15];
+        var s00 = b[0];
+        var s01 = b[1];
+        var s02 = b[2];
+        var s03 = b[3];
+        var s10 = b[4];
+        var s11 = b[5];
+        var s12 = b[6];
+        var s13 = b[7];
+        var s20 = b[8];
+        var s21 = b[9];
+        var s22 = b[10];
+        var s23 = b[11];
+        var s30 = b[12];
+        var s31 = b[13];
+        var s32 = b[14];
+        var s33 = b[15];
 
-        var o00 = b[0];
-        var o01 = b[1];
-        var o02 = b[2];
-        var o03 = b[3];
-        var o10 = b[4];
-        var o11 = b[5];
-        var o12 = b[6];
-        var o13 = b[7];
-        var o20 = b[8];
-        var o21 = b[9];
-        var o22 = b[10];
-        var o23 = b[11];
-        var o30 = b[12];
-        var o31 = b[13];
-        var o32 = b[14];
-        var o33 = b[15];
+        var o00 = a[0];
+        var o01 = a[1];
+        var o02 = a[2];
+        var o03 = a[3];
+        var o10 = a[4];
+        var o11 = a[5];
+        var o12 = a[6];
+        var o13 = a[7];
+        var o20 = a[8];
+        var o21 = a[9];
+        var o22 = a[10];
+        var o23 = a[11];
+        var o30 = a[12];
+        var o31 = a[13];
+        var o32 = a[14];
+        var o33 = a[15];
 
         r[0] =  s00 * o00 + s01 * o10 + s02 * o20 + s03 * o30;
         r[1] =  s00 * o01 + s01 * o11 + s02 * o21 + s03 * o31;
@@ -264,28 +416,6 @@ osg.Matrix = {
         return r;
     },
 
-    preMultVec3: function(s, vec, result) {
-        if (result === undefined) {
-            result = [];
-        }
-        var d = 1.0/( s[3]*vec[0] + s[7] * vec[1] + s[11]*vec[2] + s[15] );
-        result[0] = (s[0] * vec[0] + s[4]*vec[1] + s[8]*vec[2] + s[12]) * d;
-        result[1] = (s[1] * vec[0] + s[5]*vec[1] + s[9]*vec[2] + s[13]) * d;
-        result[2] = (s[2] * vec[0] + s[6]*vec[1] + s[10]*vec[2] + s[14]) * d;
-        return result;
-    },
-
-    postMultVec3: function(s, vec, result) {
-        if (result === undefined) {
-            result = [];
-        }
-        var d = 1.0/( s[12]*vec[0] + s[13] * vec[1] + s[14]*vec[2] + s[15] );
-        result[0] = (s[0] * vec[0] + s[1]*vec[1] + s[2]*vec[2] + s[3]) * d;
-        result[1] = (s[4] * vec[0] + s[5]*vec[1] + s[6]*vec[2] + s[7]) * d;
-        result[2] = (s[8] * vec[0] + s[9]*vec[1] + s[10]*vec[2] + s[11]) * d;
-        return result;
-    },
-
     makeLookAt: function(eye, center, up, result) {
 
         if (result === undefined) {
@@ -301,17 +431,17 @@ osg.Matrix = {
         var u = osg.Vec3.cross(s, f);
         osg.Vec3.normalize(u, u);
 
-            // s[0], u[0], -f[0], 0.0,
-            // s[1], u[1], -f[1], 0.0,
-            // s[2], u[2], -f[2], 0.0,
-            // 0,    0,    0,     1.0
+        // s[0], u[0], -f[0], 0.0,
+        // s[1], u[1], -f[1], 0.0,
+        // s[2], u[2], -f[2], 0.0,
+        // 0,    0,    0,     1.0
 
         result[0]=s[0]; result[1]=u[0]; result[2]=-f[0]; result[3]=0.0;
         result[4]=s[1]; result[5]=u[1]; result[6]=-f[1]; result[7]=0.0;
         result[8]=s[2]; result[9]=u[2]; result[10]=-f[2];result[11]=0.0;
         result[12]=  0; result[13]=  0; result[14]=  0;  result[15]=1.0;
 
-        osg.Matrix.preMultTranslate(result, osg.Vec3.neg(eye), result);
+        osg.Matrix.multTranslate(result, osg.Vec3.neg(eye), result);
         return result;
     },
     makeOrtho: function(left, right,
@@ -339,7 +469,7 @@ osg.Matrix = {
             distance = 1.0;
         }
         var inv = osg.Matrix.inverse(matrix);
-        osg.Matrix.preMultVec3(inv, [0,0,0], eye);
+        osg.Matrix.transformVec3(inv, [0,0,0], eye);
         osg.Matrix.transform3x3(matrix, [0,1,0], up);
         osg.Matrix.transform3x3(matrix, [0,0,-1], center);
         osg.Vec3.normalize(center, center);
@@ -415,7 +545,8 @@ osg.Matrix = {
         return result;
     },
 
-    preMultTranslate: function(mat, translate, result) {
+    // result = Matrix M * Matrix Translate
+    multTranslate: function(mat, translate, result) {
         if (result === undefined) {
             result = [];
         }
@@ -516,8 +647,8 @@ osg.Matrix = {
         return result;
     },
 
-    transformVec3: function(vector, matrix, result) {
-        var d = 1.0/(matrix[3] * vector[0] + matrix[7] * vector[1] * matrix[11] * vector[2] + matrix[15]); 
+    transformVec3: function(matrix, vector, result) {
+        var d = 1.0/(matrix[3] * vector[0] + matrix[7] * vector[1] + matrix[11] * vector[2] + matrix[15]); 
         if (result === undefined) {
             result = [];
         }
@@ -538,7 +669,7 @@ osg.Matrix = {
         return result;
     },
 
-    transformVec4: function(vector, matrix, result) {
+    transformVec4: function(matrix, vector, result) {
         if (result === undefined) {
             result = [];
         }
@@ -585,11 +716,13 @@ osg.Matrix = {
     inverse: function(matrix, resultArg) {
         return this.inverse4x4(matrix,resultArg);
         // it's not working yet, need to debug inverse 4x3
+/*
         if (matrix[3] === 0.0 && matrix[7] === 0.0 && matrix[11] === 0.0 && matrix[15] === 1.0) {
             return this.inverse4x3(matrix,resultArg);
         } else {
             return this.inverse4x4(matrix,resultArg);
         }
+*/
     },
 
     /**
@@ -680,22 +813,22 @@ osg.Matrix = {
         var out_33 = d * ((tmp_22 * matrix[10] + tmp_16 * matrix[2] + tmp_21 * matrix[6]) -
                           (tmp_20 * matrix[6] + tmp_23 * matrix[10] + tmp_17 * matrix[2]));
 
-        result[0*4+0] = out_00;
-        result[0*4+1] = out_01;
-        result[0*4+2] = out_02;
-        result[0*4+3] = out_03;
-        result[1*4+0] = out_10;
-        result[1*4+1] = out_11;
-        result[1*4+2] = out_12;
-        result[1*4+3] = out_13;
-        result[2*4+0] = out_20;
-        result[2*4+1] = out_21;
-        result[2*4+2] = out_22;
-        result[2*4+3] = out_23;
-        result[3*4+0] = out_30;
-        result[3*4+1] = out_31;
-        result[3*4+2] = out_32;
-        result[3*4+3] = out_33;
+        result[0] = out_00;
+        result[1] = out_01;
+        result[2] = out_02;
+        result[3] = out_03;
+        result[4] = out_10;
+        result[5] = out_11;
+        result[6] = out_12;
+        result[7] = out_13;
+        result[8] = out_20;
+        result[9] = out_21;
+        result[10] = out_22;
+        result[11] = out_23;
+        result[12] = out_30;
+        result[13] = out_31;
+        result[14] = out_32;
+        result[15] = out_33;
 
         if (resultArg !== undefined) {
             return true;
@@ -746,7 +879,7 @@ osg.Matrix = {
         var d2 = d-1.0;
         var tx, ty, tz;
         if( d2*d2 > 1.0e-6 ) { // Involves perspective, so we must
-                               // compute the full inverse
+            // compute the full inverse
             var TPinv = [];
             result[12] = result[13] = result[15] = 0.0;
 
@@ -781,7 +914,7 @@ osg.Matrix = {
             TPinv[14]= -tz;
             TPinv[15]= one_over_s;
             
-            this.preMult(result, TPinv); // Finish computing full inverse of mat
+            this.mult(result, TPinv, result); // Finish computing full inverse of mat
         } else {
 
             tx = matrix[12]; ty = matrix[13]; tz = matrix[14];
@@ -801,42 +934,35 @@ osg.Matrix = {
         if (result === undefined) {
             result = [];
         }
-        var tmp;
+        var dst;
+        var src;
         if (result === matrix) {
-            tmp = osg.Matrix.copy(matrix, result);
+            dst = matrix;
+            src = osg.Matrix.copy(matrix);
         } else {
-            tmp = result;
+            dst = result;
+            src = matrix;
+
+            dst[0] = src[0];
+            dst[5] = src[5];
+            dst[10] = src[10];
+            dst[15] = src[15];
         }
 
-        if (result !== matrix) {
-            tmp[0] = matrix[0];
-            tmp[5] = matrix[5];
-            tmp[10] = matrix[10];
-            tmp[15] = matrix[15];
-        }
+        dst[1] = src[4];
+        dst[2] = src[8];
+        dst[3] = src[12];
+        dst[4] = src[1];
+        dst[6] = src[9];
+        dst[7] = src[13];
+        dst[8] = src[2];
+        dst[9] = src[6];
+        dst[11] = src[14];
+        dst[12] = src[3];
+        dst[13] = src[7];
+        dst[14] = src[11];
 
-        tmp[1] = matrix[4];
-        tmp[2] = matrix[8];
-        tmp[3] = matrix[12];
-        tmp[4] = matrix[1];
-        tmp[6] = matrix[9];
-        tmp[7] = matrix[13];
-        tmp[8] = matrix[2];
-        tmp[9] = matrix[5];
-        tmp[11] = matrix[14];
-        tmp[12] = matrix[3];
-        tmp[13] = matrix[7];
-        tmp[14] = matrix[11];
-
-        // var i,j;
-        // for (i = 0; i < 4; i++)
-        //     for (j = 0; j < 4; j++)
-        //         tmp[j*4 +i] = matrix[i*4 +j];
-
-        if (result === matrix) {
-            osg.Matrix.copy(tmp, result);
-        }
-        return result;
+        return dst;
     },
 
     makePerspective: function(fovy, aspect, znear, zfar, result)
@@ -1007,7 +1133,7 @@ osg.Vec2 = {
 
     normalize: function(a, result) {
         if (result === undefined) {
-            result = a;
+            result = [];
         }
 
         var norm = this.length2(a);
@@ -1117,7 +1243,7 @@ osg.Vec3 = {
 
     normalize: function(a, result) {
         if (result === undefined) {
-            result = a;
+            result = [];
         }
 
         var norm = this.length2(a);
@@ -1419,14 +1545,11 @@ osg.Quat = {
         if (result === undefined) {
             result = [];
         }
-        var x = b[3]*a[0] + b[0]*a[3] + b[1]*a[2] - b[2]*a[1];
-        var y = b[3]*a[1] - b[0]*a[2] + b[1]*a[3] + b[2]*a[0];
-        var z = b[3]*a[2] + b[0]*a[1] - b[1]*a[0] + b[2]*a[3];
 
-        result[3] = b[3]*a[3] - b[0]*a[0] - b[1]*a[1] - b[2]*a[2];
-        result[0] = x;
-        result[1] = y;
-        result[2] = z;
+        result[0] =  a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0];
+        result[1] = -a[0] * b[2] + a[1] * b[3] + a[2] * b[0] + a[3] * b[1];
+        result[2] =  a[0] * b[1] - a[1] * b[0] + a[2] * b[3] + a[3] * b[2];
+        result[3] = -a[0] * b[0] - a[1] * b[1] - a[2] * b[2] + a[3] * b[3];
         return result;
     },
     div: function(a, b, result) {
@@ -1500,16 +1623,16 @@ osg.Quat = {
         var invq = this.inv(qcur);
         var qa,qb;
 
-        this.mult(invq, q2, qa);
+        this.mult(q2, invq, qa);
         this.ln(qa, qa);
 
-        this.mult(invq, q0, qb);
+        this.mult(q0, invq , qb);
         this.ln(qb, qb);
 
         this.add(qa, qb, qa);
         this.div(qa, -4.0, qa);
         this.exp(qa, qb);
-        return this.mult(q1, qb, r);
+        return this.mult(qb, q1, r);
     },
 
     createKey: function(q, r) {
@@ -1539,15 +1662,67 @@ osg.Uniform.prototype = {
     },
     apply: function(location) {
         if (this.dirty) {
-            this.glData.set(this.data);
+            this.update.call(this.glData, this.data);
         }
         this.glCall(location, this.glData);
     },
     applyMatrix: function(location) {
         if (this.dirty) {
-            this.glData.set(this.data);
+            this.update.call(this.glData, this.data);
         }
         this.glCall(location, this.transpose, this.glData);
+    },
+    update: function(array) {
+        for (var i = 0, l = array.length; i < l; ++i ) { // FF not traced maybe short
+            this[i] = array[i];
+        }
+    },
+    setFloat1: function(f) {
+        this[0] = f[0];
+    },
+    setFloat2: function(f) {
+        this[0] = f[0];
+        this[1] = f[1];
+    },
+    setFloat3: function(f) {
+        this[0] = f[0];
+        this[1] = f[1];
+        this[2] = f[2];
+    },
+    setFloat4: function(f) {
+        this[0] = f[0];
+        this[1] = f[1];
+        this[2] = f[2];
+        this[3] = f[3];
+    },
+    setFloat9: function(f) {
+        this[0] = f[0];
+        this[1] = f[1];
+        this[2] = f[2];
+        this[3] = f[3];
+        this[4] = f[4];
+        this[5] = f[5];
+        this[6] = f[6];
+        this[7] = f[7];
+        this[8] = f[8];
+    },
+    setFloat16: function(f) {
+        this[0] = f[0];
+        this[1] = f[1];
+        this[2] = f[2];
+        this[3] = f[3];
+        this[4] = f[4];
+        this[5] = f[5];
+        this[6] = f[6];
+        this[7] = f[7];
+        this[8] = f[8];
+        this[9] = f[9];
+        this[10] = f[10];
+        this[11] = f[11];
+        this[12] = f[12];
+        this[13] = f[13];
+        this[14] = f[14];
+        this[15] = f[15];
     }
 };
 
@@ -1557,7 +1732,8 @@ osg.Uniform.createFloat1 = function(value, name) {
     uniform.glCall = function (location, glData) {
         gl.uniform1fv(location, glData);
     };
-    uniform.glData = new Float32Array(uniform.data);
+    uniform.glData = new osg.Float32Array(uniform.data);
+    uniform.update = osg.Uniform.prototype.setFloat1;
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1568,7 +1744,8 @@ osg.Uniform.createFloat2 = function(vec2, name) {
     uniform.glCall = function (location, glData) {
         gl.uniform2fv(location, glData);
     };
-    uniform.glData = new Float32Array(uniform.data);
+    uniform.glData = new osg.Float32Array(uniform.data);
+    uniform.update = osg.Uniform.prototype.setFloat2;
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1579,7 +1756,8 @@ osg.Uniform.createFloat3 = function(vec3, name) {
     uniform.glCall = function (location, glData) {
         gl.uniform3fv(location, glData);
     };
-    uniform.glData = new Float32Array(uniform.data);
+    uniform.glData = new osg.Float32Array(uniform.data);
+    uniform.update = osg.Uniform.prototype.setFloat3;
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1590,7 +1768,8 @@ osg.Uniform.createFloat4 = function(vec4, name) {
     uniform.glCall = function (location, glData) {
         gl.uniform4fv(location, glData);
     };
-    uniform.glData = new Float32Array(uniform.data);
+    uniform.glData = new osg.Float32Array(uniform.data);
+    uniform.update = osg.Uniform.prototype.setFloat4;
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1601,7 +1780,7 @@ osg.Uniform.createInt1 = function(value, name) {
     uniform.glCall = function (location, glData) {
         gl.uniform1iv(location, glData);
     };
-    uniform.glData = new Int32Array(uniform.data);
+    uniform.glData = new osg.Int32Array(uniform.data);
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1612,7 +1791,7 @@ osg.Uniform.createInt2 = function(vec2, name) {
     uniform.glCall = function (location, glData) {
         gl.uniform2iv(location, glData);
     };
-    uniform.glData = new Int32Array(uniform.data);
+    uniform.glData = new osg.Int32Array(uniform.data);
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1623,7 +1802,7 @@ osg.Uniform.createInt3 = function(vec3, name) {
     uniform.glCall = function (location, glData) {
         gl.uniform3iv(location, glData);
     };
-    uniform.glData = new Int32Array(uniform.data);
+    uniform.glData = new osg.Int32Array(uniform.data);
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1634,7 +1813,7 @@ osg.Uniform.createInt4 = function(vec4, name) {
     uniform.glCall = function (location, glData) {
         gl.uniform4iv(location, glData);
     };
-    uniform.glData = new Int32Array(uniform.data);
+    uniform.glData = new osg.Int32Array(uniform.data);
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1647,7 +1826,8 @@ osg.Uniform.createMatrix2 = function(mat2, name) {
     };
     uniform.apply = uniform.applyMatrix;
     uniform.transpose = false;
-    uniform.glData = new Float32Array(uniform.data);
+    uniform.glData = new osg.Float32Array(uniform.data);
+    uniform.update = osg.Uniform.prototype.setFloat4;
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1660,7 +1840,8 @@ osg.Uniform.createMatrix3 = function(mat3, name) {
     };
     uniform.apply = uniform.applyMatrix;
     uniform.transpose = false;
-    uniform.glData = new Float32Array(uniform.data);
+    uniform.glData = new osg.Float32Array(uniform.data);
+    uniform.update = osg.Uniform.prototype.setFloat9;
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1673,7 +1854,8 @@ osg.Uniform.createMatrix4 = function(mat4, name) {
     };
     uniform.apply = uniform.applyMatrix;
     uniform.transpose = false;
-    uniform.glData = new Float32Array(uniform.data);
+    uniform.glData = new osg.Float32Array(uniform.data);
+    uniform.update = osg.Uniform.prototype.setFloat16;
     uniform.dirty = false;
     uniform.name = name;
     return uniform;
@@ -1718,7 +1900,7 @@ osg.Shader.prototype = {
                 }
                 console.log(newText);
                 console.log(gl.getShaderInfoLog(this.shader));
-                debugger;
+                //debugger;
             } else {
                 alert(gl.getShaderInfoLog(this.shader));
             }
@@ -1734,7 +1916,14 @@ osg.Shader.create = function( type, text )
 };
 
 
-osg.Program = function () {};
+osg.Program = function () { 
+    if (osg.Program.instanceID === undefined) {
+        osg.Program.instanceID = 0;
+    }
+    this.instanceID = osg.Program.instanceID;
+    osg.Program.instanceID+= 1;
+};
+
 osg.Program.prototype = {
 
     attributeType: "Program",
@@ -1761,9 +1950,9 @@ osg.Program.prototype = {
             gl.attachShader(this.program, this.fragment.shader);
             gl.linkProgram(this.program);
             if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
-                    osg.log("can't link program\n" + this.vertex.text + this.fragment.text);
-                    osg.log(gl.getProgramInfo(this.program));
-                    debugger;
+                osg.log("can't link program\n" + this.vertex.text + this.fragment.text);
+                osg.log(gl.getProgramInfo(this.program));
+                //debugger;
                 return null;
             }
 
@@ -1882,7 +2071,7 @@ osg.ShaderGenerator.prototype = {
     },
 
     getActiveTextureAttributeMapKeys: function(state) {
-        var textureAttributeKeys = new Array(state.textureAttributeMapList.length);
+        var textureAttributeKeys = [];
         for (var i = 0, l = state.textureAttributeMapList.length; i < l; i++) {
             var attributesForUnit = state.textureAttributeMapList[i];
             if (attributesForUnit === undefined) {
@@ -1928,7 +2117,7 @@ osg.ShaderGenerator.prototype = {
             for (var b = 0, o = unitAttributekeys.length; b < o; b++) {
                 var attrName = unitAttributekeys[b];
                 if (state.textureAttributeMapList[a][attrName].globalDefault === undefined) {
-                    debugger;
+                    //debugger;
                 }
                 var textureAttribute = state.textureAttributeMapList[a][attrName].globalDefault;
                 if (textureAttribute.getOrCreateUniforms === undefined) {
@@ -2057,10 +2246,13 @@ osg.ShaderGenerator.prototype = {
             "precision highp float;",
             "#endif",
             "attribute vec3 Vertex;",
+            "attribute vec4 Color;",
             "attribute vec3 Normal;",
+            "uniform int ArrayColorEnabled;",
             "uniform mat4 ModelViewMatrix;",
             "uniform mat4 ProjectionMatrix;",
             "uniform mat4 NormalMatrix;",
+            "varying vec4 VertexColor;",
             ""
         ].join('\n');
 
@@ -2082,8 +2274,12 @@ osg.ShaderGenerator.prototype = {
             "",
             "void main(void) {",
             "gl_Position = ftransform();",
+            "if (ArrayColorEnabled == 1)",
+            "  VertexColor = Color;",
+            "else",
+            "  VertexColor = vec4(1.0,1.0,1.0,1.0);",
             ""
-            ].join('\n');
+        ].join('\n');
 
         shader += body;
 
@@ -2107,9 +2303,11 @@ osg.ShaderGenerator.prototype = {
             "#ifdef GL_ES",
             "precision highp float;",
             "#endif",
+            "varying vec4 VertexColor;",
+            "uniform int ArrayColorEnabled;",
             "vec4 fragColor;",
             ""
-            ].join("\n");
+        ].join("\n");
         var mode = osg.ShaderGeneratorType.FragmentInit;
 
         shader += this.fillTextureShader(state.textureAttributeMapList, validTextureAttributeKeys, mode);
@@ -2117,9 +2315,9 @@ osg.ShaderGenerator.prototype = {
 
         shader += [
             "void main(void) {",
-            "fragColor = vec4(1.0, 1.0, 1.0, 1.0);",
+            "fragColor = VertexColor;",
             ""
-            ].join('\n');
+        ].join('\n');
 
         mode = osg.ShaderGeneratorType.FragmentMain;
         if (validTextureAttributeKeys.length > 0) {
@@ -2172,20 +2370,17 @@ osg.State = function () {
     this.projectionMatrix = osg.Uniform.createMatrix4(osg.Matrix.makeIdentity(), "ProjectionMatrix");
     this.normalMatrix = osg.Uniform.createMatrix4(osg.Matrix.makeIdentity(), "NormalMatrix");
 
+    this.uniformArrayState = {};
+    this.uniformArrayState.uniformKeys = [];
+    this.uniformArrayState.Color = osg.Uniform.createInt1(0, "ArrayColorEnabled");
+    this.uniformArrayState.uniformKeys.push("Color");
+
+    this.vertexAttribMap = {};
+    this.vertexAttribMap._disable = [];
+    this.vertexAttribMap._keys = [];
 };
 
 osg.State.prototype = {
-
-    applyModelViewAndProjectionMatrix: function(modelview, projection) {
-        this.modelViewMatrix.set(modelview);
-        this.projectionMatrix.set(projection);
-
-        var normal = osg.Matrix.copy(modelview);
-        osg.Matrix.setTrans(normal, 0,0,0);
-        osg.Matrix.inverse(normal, normal);
-        this.normalMatrix.set(normal);
-        this.getLastProgramApplied();
-    },
 
     pushStateSet: function(stateset) {
         this.stateSets.push(stateset);
@@ -2314,6 +2509,11 @@ osg.State.prototype = {
         this.programs.pop();
     },
 
+    applyWithoutProgram: function() {
+        this.applyAttributeMap(this.attributeMap);
+        this.applyTextureAttributeMapList(this.textureAttributeMapList);
+    },
+
     apply: function() {
         this.applyAttributeMap(this.attributeMap);
         this.applyTextureAttributeMapList(this.textureAttributeMapList);
@@ -2325,12 +2525,18 @@ osg.State.prototype = {
             this.programs.lastApplied = program;
         }
 
+	var programUniforms;
+	var activeUniforms;
+        var i;
+        var key;
         if (program.generated !== undefined && program.generated === true) {
+            // note that about TextureAttribute that need uniform on unit we would need to improve
+            // the current uniformList ...
 
-            var programUniforms = program.uniformsCache;
-            var activeUniforms = program.activeUniforms;
+            programUniforms = program.uniformsCache;
+            activeUniforms = program.activeUniforms;
             var regenrateKeys = false;
-            for (var i = 0 , l = activeUniforms.uniformKeys.length; i < l; i++) {
+            for (i = 0 , l = activeUniforms.uniformKeys.length; i < l; i++) {
                 var name = activeUniforms.uniformKeys[i];
                 var location = programUniforms[name];
                 if (location !== undefined) {
@@ -2342,7 +2548,7 @@ osg.State.prototype = {
             }
             if (regenrateKeys) {
                 var keys = [];
-                for (var key in activeUniforms) {
+                for (key in activeUniforms) {
                     if (key !== "uniformKeys") {
                         keys.push(key);
                     }
@@ -2350,10 +2556,108 @@ osg.State.prototype = {
                 activeUniforms.uniformKeys = keys;
             }
         } else {
-            // note that about TextureAttribute that need uniform on unit we would need to improve
-            // the current uniformList ...
-            //var uniformList = this.collectUniformsAppliedAttributes(this.shaderGeneratorAttributes);
-            this.applyUniformList(this.uniforms, {});
+            
+            //this.applyUniformList(this.uniforms, {});
+
+            // custom program so we will iterate on uniform from the program and apply them
+            // but in order to be able to use Attribute in the state graph we will check if
+            // our program want them. It must be defined by the user
+            var programObject = program.program;
+            var location1;
+            var uniformStack;
+            var uniform;
+
+            programUniforms = program.uniformsCache;
+            var uniformMap = this.uniforms;
+
+            // first time we see attributes key, so we will keep a list of uniforms from attributes
+            activeUniforms = [];
+            var trackAttributes = program.trackAttributes;
+            var trackUniforms = program.trackUniforms;
+            var attribute;
+            var uniforms;
+            var a;
+            // loop on wanted attributes and texture attribute to track state graph uniforms from those attributes
+            if (trackAttributes !== undefined && trackUniforms === undefined) {
+                var attributeKeys = program.trackAttributes.attributeKeys;
+                for ( i = 0, l = attributeKeys.length; i < l; i++) {
+                    key = attributeKeys[i];
+                    attributeStack = this.attributeMap[key];
+                    if (attributeStack === undefined) {
+                        continue;
+                    }
+                    // we just need the uniform list and not the attribute itself
+                    attribute = attributeStack.globalDefault;
+                    if (attribute.getOrCreateUniforms === undefined) {
+                        continue;
+                    }
+                    uniforms = attribute.getOrCreateUniforms();
+                    for (a = 0, b = uniforms.uniformKeys.length; a < b; a++) {
+                        activeUniforms.push(uniforms[uniforms.uniformKeys[a] ]);
+                    }
+                }
+
+                var textureAttributeKeysList = program.trackAttributes.textureAttributeKeys;
+                for (i = 0, l = textureAttributeKeysList.length; i < l; i++) {
+                    var tak = textureAttributeKeysList[i];
+                    if (tak === undefined) {
+                        continue;
+                    }
+                    for (var j = 0, m = tak.length; j < m; j++) {
+                        key = tak[j];
+                        var attributeList = this.textureAttributeMapList[i];
+                        if (attributeList === undefined) {
+                            continue;
+                        }
+                        attributeStack = attributeList[key];
+                        if (attributeStack === undefined) {
+                            continue;
+                        }
+                        attribute = attributeStack.globalDefault;
+                        if (attribute.getOrCreateUniforms === undefined) {
+                            continue;
+                        }
+                        uniforms = attribute.getOrCreateUniforms(i);
+                        for (a = 0, b = uniforms.uniformKeys.length; a < b; a++) {
+                            activeUniforms.push(uniforms[uniforms.uniformKeys[a] ]);
+                        }
+                    }
+                }
+
+                // now we have a list on uniforms we want to track but we will filter them to use only what is needed by our program
+                // not that if you create a uniforms whith the same name of a tracked attribute, and it will override it
+                var uniformsFinal = {};
+                for (i = 0, l = activeUniforms.length; i < l; i++) {
+                    var u = activeUniforms[i];
+                    var loc = gl.getUniformLocation(programObject, u.name);
+                    if (loc !== undefined && loc !== null) {
+                        uniformsFinal[u.name] = activeUniforms[i];
+                    }
+                }
+                program.trackUniforms = uniformsFinal;
+            }
+
+            for (i = 0, l = programUniforms.uniformKeys.length; i < l; i++) {
+                var uniformKey = programUniforms.uniformKeys[i];
+                location1 = programUniforms[uniformKey];
+
+                uniformStack = uniformMap[uniformKey];
+                if (uniformStack === undefined) {
+                    if (program.trackUniforms !== undefined) {
+                        uniform = program.trackUniforms[uniformKey];
+                        if (uniform !== undefined) {
+                            uniform.apply(location1);
+                        }
+                    }
+                } else {
+                    if (uniformStack.length === 0) {
+                        uniform = uniformStack.globalDefault;
+                    } else {
+                        uniform = uniformStack.back();
+                    }
+                    uniform.apply(location1);
+                }
+            }
         }
     },
 
@@ -2514,15 +2818,29 @@ osg.State.prototype = {
 
     disableVertexAttribsExcept: function(indexList) {
         var that = indexList;
+        // is 'filter' a good way to do it fast ?
         var disableArray = this.vertexAttribList.filter(function (element, index, array) {
             return (that.indexOf(element) < 0 );
         });
 
         for (var i = 0, l = disableArray.length; i < l; i++) {
-            gl.disableVertexAttribArray(disableArray[i]);
+            //gl.disableVertexAttribArray(disableArray[i]);
         }
 
-        this.vertexAttribList = indexList;
+        var program = this.programs.lastApplied;
+        if (program.generated === true) {
+            for (var j = 0, k = disableArray.length; j < k; j++) {
+                var attrib = disableArray[j];
+                if (program.attributesCache.attributeKeys[attrib] !== undefined) {
+                    var name = program.attributesCache.attributeKeys[attrib];
+                    if (name === "Color") {
+                        this.uniformArrayState[name].set([0]);
+                        this.uniformArrayState[name].apply(program.uniformsCache["ArrayColorEnabled"]);
+                    }
+                }
+            }
+        }
+        this.vertexAttribList = indexList.slice(0);
     },
 
     setIndexArray: function(array) {
@@ -2538,25 +2856,84 @@ osg.State.prototype = {
         }
     },
 
+    lazyDisablingOfVertexAttributes: function() {
+        var keys = this.vertexAttribMap._keys;
+        for (var i = 0, l = keys.length; i < l; i++) {
+            var attr = keys[i];
+            if (this.vertexAttribMap[attr] !== undefined) {
+                this.vertexAttribMap._disable[attr] = true;
+            }
+        }
+    },
+    applyDisablingOfVertexAttributes: function() {
+        var keys = this.vertexAttribMap._keys;
+        for (var i = 0, l = keys.length; i < l; i++) {
+            if (this.vertexAttribMap._disable[keys[i] ] === true) {
+                var attr = keys[i];
+                gl.disableVertexAttribArray(attr);
+                this.vertexAttribMap._disable[attr] = false;
+                this.vertexAttribMap[attr] = undefined;
+            }
+        }
+
+        var program = this.programs.lastApplied;
+        if (program.generated === true) {
+            var colorAttrib = program.attributesCache.Color;
+            if (colorAttrib !== undefined) {
+                if (this.vertexAttribMap[colorAttrib] !== undefined) {
+                    this.uniformArrayState["Color"].set([1]);
+                } else {
+                    this.uniformArrayState["Color"].set([0]);
+                }
+                this.uniformArrayState["Color"].apply(program.uniformsCache["ArrayColorEnabled"]);
+            }
+        }
+    },
+    setVertexAttribArrayLazy: function(attrib, array, normalize) {
+        this.vertexAttribMap._disable[ attrib ] = false;
+        if (!array.buffer) {
+            array.init();
+        }
+        if (array.dirty) {
+            gl.bindBuffer(array.type, array.buffer);
+            array.compile();
+        }
+        if (this.vertexAttribMap[attrib] !== array) {
+
+            gl.bindBuffer(array.type, array.buffer);
+
+            if (this.vertexAttribMap[attrib] === undefined) {
+                gl.enableVertexAttribArray(attrib);
+                this.vertexAttribMap._keys.push(attrib);
+            }
+
+            this.vertexAttribMap[attrib] = array;
+            gl.vertexAttribPointer(attrib, array.itemSize, gl.FLOAT, normalize, 0, 0);
+        }
+    },
+
     setVertexAttribArray: function(attrib, array, normalize) {
         if (!array.buffer) {
             array.init();
         }
         gl.bindBuffer(array.type, array.buffer);
-        // it does not seems interesting to check the current vbo binded
-        // if (this.currentVBO !== array) {
-        //     if (!array.buffer) {
-        //         array.init();
-        //     }
-        //     gl.bindBuffer(array.type, array.buffer);
-        //     this.currentVBO = array;
-        // }
         if (array.dirty) {
             array.compile();
         }
         this.vertexAttribList.push(attrib);
         gl.enableVertexAttribArray(attrib);
         gl.vertexAttribPointer(attrib, array.itemSize, gl.FLOAT, normalize, 0, 0);
+
+        var program = this.programs.lastApplied;
+        if (program.generated === true) {
+            if (program.attributesCache.attributeKeys[attrib] !== undefined) {
+                var name = program.attributesCache.attributeKeys[attrib];
+                if (name === "Color") {
+                    this.uniformArrayState[name].set([1]);
+                    this.uniformArrayState[name].apply(program.uniformsCache["ArrayColorEnabled"]);
+                }
+            }
+        }
     }
 
 };
@@ -2627,9 +3004,267 @@ osg.StateSet.create = function() {
     return ss;
 };
 
+
+osg.BoundingBox = function() {
+    this._min = [1,1,1];
+    this._max = [0,0,0];
+};
+osg.BoundingBox.prototype = {
+    init: function() {
+	this._min = [1,1,1];
+	this._max = [0,0,0];
+    },
+
+    valid: function() {
+        return (this._max[0] >= this._min[0] &&  this._max[1] >= this._min[1] &&  this._max[2] >= this._min[2]);
+    },
+
+    expandBySphere: function(sh) {
+        if (!sh.valid()) {
+            return;
+        }
+        if(sh._center[0]-sh._radius<this._min[0]) { this._min[0] = sh._center[0]-sh._radius; }
+        if(sh._center[0]+sh._radius>this._max[0]) { this._max[0] = sh._center[0]+sh._radius; }
+
+        if(sh._center[1]-sh._radius<this._min[1]) { this._min[1] = sh._center[1]-sh._radius; }
+        if(sh._center[1]+sh._radius>this._max[1]) { this._max[1] = sh._center[1]+sh._radius; }
+
+        if(sh._center[2]-sh._radius<this._min[2]) { this._min[2] = sh._center[2]-sh._radius; }
+        if(sh._center[2]+sh._radius>this._max[2]) { this._max[2] = sh._center[2]+sh._radius; }
+    },
+    expandByVec3: function(v){
+
+	if ( this.valid() ) {
+	    if ( this._min[0] > v[0] ) { this._min[0] = v[0]; }
+	    if ( this._min[1] > v[1] ) { this._min[1] = v[1]; }
+	    if ( this._min[2] > v[2] ) { this._min[2] = v[2]; }
+	    if ( this._max[0] < v[0] ) { this._max[0] = v[0]; }
+	    if ( this._max[1] < v[1] ) { this._max[1] = v[1]; }
+	    if ( this._max[2] < v[2] ) { this._max[2] = v[2]; }
+	} else {
+	    this._min[0] = v[0];
+	    this._min[1] = v[1];
+	    this._min[2] = v[2];
+	    this._max[0] = v[0];
+	    this._max[1] = v[1];
+	    this._max[2] = v[2];
+	}
+    },
+
+    center: function() {
+	return osg.Vec3.mult(osg.Vec3.add(this._min,this._max),0.5);
+    },
+    radius: function() {
+	return Math.sqrt(this.radius2());
+    },
+
+    radius2: function() {
+	return 0.25*(osg.Vec3.length2(osg.Vec3.sub(this._max,this._min)));
+    },
+    corner: function(pos) {
+        ret = [0.0,0.0,0.0];
+        if ( pos & 1 ) {
+	    ret[0]=this._max[0];
+	} else {
+	    ret[0]=this._min[0];
+	}
+        if ( pos & 2 ) {
+	    ret[1]=this._max[1];
+	} else {
+	    ret[1]=this._min[1];
+	}
+        if ( pos & 4 ) {
+	    ret[2]=this._max[2];
+	} else {
+	    ret[2]=this._min[2];
+	}
+        return ret;
+    }
+
+};
+
+
+osg.BoundingSphere = function() {
+    this._center = [0.0,0.0,0.0];
+    this._radius = -1;
+};
+osg.BoundingSphere.prototype = {
+    init: function() {
+	this._center = [0.0,0.0,0.0];
+	this._radius = -1;
+    },
+    valid: function() {
+	return this._radius>=0.0;
+    },
+    set: function (center,radius)
+    {
+	this._center = center;
+	this._radius = radius;
+    },
+    center: function() {return this._center;},
+    radius: function() {return this._radius;},
+    radius2: function() {return this._radius*this._radius;},
+
+    expandByBox: function(bb) {
+	if ( bb.valid() )
+	{
+            var c;
+	    if (this.valid())
+	    {
+		var newbb = new osg.BoundingBox();
+		newbb._min[0]=bb._min[0];
+		newbb._min[1]=bb._min[1];
+		newbb._min[2]=bb._min[2];
+		newbb._max[0]=bb._max[0];
+		newbb._max[1]=bb._max[1];
+		newbb._max[2]=bb._max[2];
+
+                // this code is not valid c is defined after the loop
+                // FIXME
+		for (var i = 0 ; i < 8; i++) {
+                    var v = osg.Vec3.sub(bb.corner(c),this._center); // get the direction vector from corner
+                    osg.Vec3.normalize(v,v); // normalise it.
+                    nv[0] *= -this._radius; // move the vector in the opposite direction distance radius.
+                    nv[1] *= -this._radius; // move the vector in the opposite direction distance radius.
+                    nv[2] *= -this._radius; // move the vector in the opposite direction distance radius.
+                    nv[0] += this._center[0]; // move to absolute position.
+                    nv[1] += this._center[1]; // move to absolute position.
+                    nv[2] += this._center[2]; // move to absolute position.
+                    newbb.expandBy(nv); // add it into the new bounding box.
+		}
+
+		c = newbb.center();
+		this._center[0] = c[0];
+		this._center[1] = c[1];
+		this._center[2] = c[2];
+		this._radius    = newbb.radius();
+
+
+	    }
+	    else
+	    {
+
+		c = bb.center();
+		this._center[0] = c[0];
+		this._center[1] = c[1];
+		this._center[2] = c[2];
+		this._radius    = bb.radius();
+
+	    }
+	}
+
+    },
+
+    expandByVec3: function(v){
+	if ( this.valid())
+	{
+	    var dv = osg.Vec3.sub(v,this.center());
+	    r = osg.Vec3.length(dv);
+	    if (r>this.radius())
+	    {
+		dr = (r-this.radius())*0.5;
+		this._center[0] += dv[0] * (dr/r);
+		this._center[1] += dv[1] * (dr/r);
+		this._center[2] += dv[2] * (dr/r);
+		this._radius += dr;
+	    }
+	}
+	else
+	{
+	    this._center[0] = v[0];
+	    this._center[1] = v[1];
+	    this._center[2] = v[2];
+	    this._radius = 0.0;
+	}
+    },
+
+    expandRadiusBySphere: function(sh){
+        if (sh.valid()) {
+            if (this.valid()) {
+                var sub = osg.Vec3.sub;
+                var length = osg.Vec3.length;
+                var r = length(sub(sh._center,this._center))+sh._radius;
+                if (r>this._radius) {
+                    this._radius = r;
+                }
+                // else do nothing as vertex is within sphere.
+            } else {
+                this._center = osg.Vec3.copy(sh._center);
+                this._radius = sh._radius;
+            }
+        }
+    },
+    expandBy: function(sh){
+	// ignore operation if incomming BoundingSphere is invalid.
+	if (!sh.valid()) { return; }
+
+	// This sphere is not set so use the inbound sphere
+	if (!this.valid())
+	{
+	    this._center[0] = sh._center[0];
+	    this._center[1] = sh._center[1];
+	    this._center[2] = sh._center[2];
+	    this._radius = sh.radius();
+
+	    return;
+	}
+
+
+	// Calculate d == The distance between the sphere centers
+	var tmp= osg.Vec3.sub( this.center() , sh.center() );
+	d = osg.Vec3.length(tmp);
+
+	// New sphere is already inside this one
+	if ( d + sh.radius() <= this.radius() )
+	{
+	    return;
+	}
+
+	//  New sphere completely contains this one
+	if ( d + this.radius() <= sh.radius() )
+	{
+	    this._center[0] = sh._center[0];
+	    this._center[1] = sh._center[1];
+	    this._center[2] = sh._center[2];
+	    this._radius    = sh._radius;
+	    return;
+	}
+
+
+	// Build a new sphere that completely contains the other two:
+	//
+	// The center point lies halfway along the line between the furthest
+	// points on the edges of the two spheres.
+	//
+	// Computing those two points is ugly - so we'll use similar triangles
+	new_radius = (this.radius() + d + sh.radius() ) * 0.5;
+	ratio = ( new_radius - this.radius() ) / d ;
+
+	this._center[0] += ( sh._center[0] - this._center[0] ) * ratio;
+	this._center[1] += ( sh._center[1] - this._center[1] ) * ratio;
+	this._center[2] += ( sh._center[2] - this._center[2] ) * ratio;
+
+	this._radius = new_radius;
+
+    },
+    contains: function(v) {
+	var vc = osg.Vec3.sub(v,this.center());
+	return valid() && (osg.Vec3.length2(vc)<=radius2());
+    },
+    intersects: function( bs ) {
+	var lc = osg.Vec3.length2(osg.Vec3.sub(this.center() , bs.center()));
+	return valid() && bs.valid() &&
+	    (lc <= (this.radius() + bs.radius())*(this.radius() + bs.radius()));
+    }
+};
+
+
 osg.Node = function () {
     this.children = [];
+    this.parents = [];
     this.nodeMask = ~0;
+    this.boundingSphere = new osg.BoundingSphere();
+    this.boundingSphereComputed = false;
 };
 osg.Node.prototype = {
     getOrCreateStateSet: function() {
@@ -2644,34 +3279,65 @@ osg.Node.prototype = {
             nv.apply(this);
         }
     },
-    setNodeMask: function(mask) { this.nodeMask = mask; }, 
+    dirtyBound: function() {
+        if (this.boundingSphereComputed === true) {
+            this.boundingSphereComputed = false;
+            for (var i = 0, l = this.parents.length; i < l; i++) {
+                this.parents[i].dirtyBound();
+            }
+        }
+    },
+    setNodeMask: function(mask) { this.nodeMask = mask; },
     getNodeMask: function(mask) { return this.nodeMask; },
     setStateSet: function(s) { this.stateset = s; },
     setUpdateCallback: function(cb) { this.updateCallback = cb; },
     getUpdateCallback: function() { return this.updateCallback; },
     setName: function(name) { this.name = name; },
     getName: function() { return this.name; },
-    addChild: function (child) { return this.children.push(child); },
-    getChildren: function() { return this.children; },
-    removeChildren: function () { this.children.length = 0; },
-    
-    removeChildOld: function (child) {
+    hasChild: function(child) {
         for (var i = 0, l = this.children.length; i < l; i++) {
             if (this.children[i] === child) {
-                if (i != l-1) {
-                    this.children[i] = this.children[l-1];
-                    this.children.pop();
-                } else {
-                    this.children.pop();
-                }
+                return true;
+            }
+        }
+        return false;
+    },
+    addChild: function (child) {
+	var c =  this.children.push(child);
+        child.addParent(this);
+	this.dirtyBound();
+	return c;
+    },
+    getChildren: function() { return this.children; },
+    addParent: function( parent) {
+        this.parents.push(parent);
+    },
+    removeParent: function(parent) {
+        for (var i = 0, l = this.parents.length, parents = this.parents; i < l; i++) {
+            if (parents[i] === parent) {
+                parents.splice(i, 1);
+                return;
             }
         }
     },
+    removeChildren: function () {
+        var children = this.children;
+        if (children.length !== 0) {
+            for (var i = 0, l = children.length; i < l; i++) {
+                children[i].removeParent(this);
+            }
+	    this.children.length = 0;
+	    this.dirtyBound();
+        }
+    },
+
     // preserve order
     removeChild: function (child) {
         for (var i = 0, l = this.children.length; i < l; i++) {
             if (this.children[i] === child) {
+                child.removeParent(this);
                 this.children.splice(i, 1);
+	        this.dirtyBound();
             }
         }
     },
@@ -2682,32 +3348,123 @@ osg.Node.prototype = {
             child.accept(visitor);
         }
     },
-    traverseNew: function (visitor) {
-        for (var i = 0, l = this.children.length; i < l; i++) {
-            var child = this.children[i];
-            if (visitor.validNodeMask(child)) {
-                visitor.apply(child);
-            }
+
+    getBound: function() {
+        if(!this.boundingSphereComputed) {
+            this.computeBound(this.boundingSphere);
+            this.boundingSphereComputed = true;
         }
+        return this.boundingSphere;
+    },
+
+    computeBound: function (bsphere) {
+        var bb = new osg.BoundingBox();
+        bb.init();
+        bsphere.init();
+	for (var i = 0, l = this.children.length; i < l; i++) {
+	    var child = this.children[i];
+            if (child.referenceFrame === undefined || child.referenceFrame === osg.Transform.RELATIVE_RF) {
+	        bb.expandBySphere(child.getBound());
+            }
+	}
+        if (!bb.valid()) {
+            return bsphere;
+        }
+        bsphere._center = bb.center();
+        bsphere._radius = 0.0;
+	for (var j = 0, l2 = this.children.length; j < l2; j++) {
+	    var cc = this.children[j];
+            if (cc.referenceFrame === undefined || cc.referenceFrame === osg.Transform.RELATIVE_RF) {
+	        bsphere.expandRadiusBySphere(cc.getBound());
+            }
+	}
+            
+	return bsphere;
     }
+
 };
-osg.Node.create = function() {
-    var node = new osg.Node();
-    return node;
+osg.Node.prototype.objecType = osg.objectType.generate("Node");
+
+
+osg.Transform = function() {
+    osg.Node.call(this);
+    this.referenceFrame = osg.Transform.RELATIVE_RF;
 };
+osg.Transform.RELATIVE_RF = 0;
+osg.Transform.ABSOLUTE_RF = 1;
+osg.Transform.prototype = osg.objectInehrit(osg.Node.prototype, {
+    setReferenceFrame: function(value) { this.referenceFrame = value; },
+    getReferenceFrame: function() { return this.referenceFrame; },
+
+    computeBound: function(bsphere) {
+        osg.Node.prototype.computeBound.call(this, bsphere);
+        if (!bsphere.valid()) {
+            return bsphere;
+        }
+        var matrix = osg.Matrix.makeIdentity();
+        this.computeLocalToWorldMatrix(matrix);
+
+        var xdash = osg.Vec3.copy(bsphere._center);
+        xdash[0] += bsphere._radius;
+        osg.Matrix.transformVec3(matrix,xdash, xdash);
+
+        var ydash = osg.Vec3.copy(bsphere._center);
+        ydash[1] += bsphere._radius;
+        osg.Matrix.transformVec3(matrix,ydash, ydash);
+
+        var zdash = osg.Vec3.copy(bsphere._center);
+        zdash[2] += bsphere._radius;
+        osg.Matrix.transformVec3(matrix,zdash, zdash);
+
+        osg.Matrix.transformVec3(matrix, bsphere._center, bsphere._center);
+
+        osg.Vec3.sub(xdash,bsphere._center, xdash);
+        var len_xdash = osg.Vec3.length(xdash);
+
+        osg.Vec3.sub(ydash, bsphere._center, ydash);
+        var len_ydash = osg.Vec3.length(ydash);
+
+        osg.Vec3.sub(zdash, bsphere._center, zdash);
+        var len_zdash = osg.Vec3.length(zdash);
+
+        bsphere._radius = len_xdash;
+        if (bsphere._radius<len_ydash) {
+            bsphere._radius = len_ydash;
+        }
+        if (bsphere._radius<len_zdash) {
+            bsphere._radius = len_zdash;
+        }
+        return bsphere;
+    }
+});
+
 
 osg.MatrixTransform = function() {
-    osg.Node.call(this);
+    osg.Transform.call(this);
     this.matrix = osg.Matrix.makeIdentity();
 };
-osg.MatrixTransform.prototype = osg.objectInehrit(osg.Node.prototype, {
+osg.MatrixTransform.prototype = osg.objectInehrit(osg.Transform.prototype, {
     getMatrix: function() { return this.matrix; },
-    setMatrix: function(m) { this.matrix = m; }
+    setMatrix: function(m) { this.matrix = m; },
+    computeLocalToWorldMatrix: function(matrix,nodeVisitor) {
+        if (this.referenceFrame === osg.Transform.RELATIVE_RF) {
+            osg.Matrix.preMult(matrix, this.matrix);
+        } else {
+            matrix = this.matrix;
+        }
+        return true;
+    },
+    computeWorldToLocalMatrix: function(matrix,nodeVisitor) {
+        var minverse = osg.Matrix.inverse(this.matrix);
+        if (this.referenceFrame === osg.Transform.RELATIVE_RF) {
+            osg.Matrix.postMult(minverse, matrix);
+        } else {// absolute
+            matrix = inverse;
+        }
+        return true;
+    }
 });
-osg.MatrixTransform.create = function() {
-    var mt = new osg.MatrixTransform();
-    return mt;
-};
+osg.MatrixTransform.prototype.objectType = osg.objectType.generate("MatrixTransform");
 
 
 osg.Projection = function () {
@@ -2718,21 +3475,13 @@ osg.Projection.prototype = osg.objectInehrit(osg.Node.prototype, {
     getProjectionMatrix: function() { return this.projection; },
     setProjectionMatrix: function(m) { this.projection = m; }
 });
-osg.Projection.create = function() {
-    var p = new osg.Projection();
-    return p;
-};
+osg.Projection.prototype.objectType = osg.objectType.generate("Projection");
 
 
 
 osg.Texture = function() {
-    this.mag_filter = 'LINEAR';
-    this.min_filter = 'LINEAR_MIPMAP_LINEAR';
-    this.wrap_s = 'CLAMP_TO_EDGE';
-    this.wrap_t = 'CLAMP_TO_EDGE';
-    this.textureWidth = 0;
-    this.textureHeight = 0;
-    this.target = 'TEXTURE_2D';
+    this.setDefaultParameters();
+    this.dirty = true;
 };
 
 osg.Texture.prototype = {
@@ -2754,6 +3503,15 @@ osg.Texture.prototype = {
             osg.Texture.uniforms[unit] = uniforms;
         }
         return osg.Texture.uniforms[unit];
+    },
+    setDefaultParameters: function() {
+        this.mag_filter = 'LINEAR';
+        this.min_filter = 'LINEAR';
+        this.wrap_s = 'CLAMP_TO_EDGE';
+        this.wrap_t = 'CLAMP_TO_EDGE';
+        this.textureWidth = 0;
+        this.textureHeight = 0;
+        this.target = 'TEXTURE_2D';
     },
     setTextureSize: function(w,h) {
         this.textureWidth = w;
@@ -3062,10 +3820,12 @@ osg.Viewport = function (x,y, w, h) {
     this.width = function() { return width; };
     this.height = function() { return height; };
     this.computeWindowMatrix = function() {
+        // res = Matrix offset * Matrix scale * Matrix translate
         var translate = osg.Matrix.makeTranslate(1.0, 1.0, 1.0);
         var scale = osg.Matrix.makeScale(0.5*width, 0.5*height, 0.5);
         var offset = osg.Matrix.makeTranslate(xstart,ystart,0.0);
-        return osg.Matrix.mult(osg.Matrix.mult(translate, scale, translate), offset, offset);
+        //return osg.Matrix.mult(osg.Matrix.mult(translate, scale, translate), offset, offset);
+        return osg.Matrix.preMult(offset, osg.Matrix.preMult(scale, translate));
     };
 };
 osg.Viewport.prototype = {
@@ -3093,11 +3853,11 @@ osg.Material.prototype = {
     getOrCreateUniforms: function() {
         if (osg.Material.uniforms === undefined) {
             osg.Material.uniforms = { "ambient": osg.Uniform.createFloat4([ 0, 0, 0, 0], 'MaterialAmbient') ,
-                                  "diffuse": osg.Uniform.createFloat4([ 0, 0, 0, 0], 'MaterialDiffuse') ,
-                                  "specular": osg.Uniform.createFloat4([ 0, 0, 0, 0], 'MaterialSpecular') ,
-                                  "emission": osg.Uniform.createFloat4([ 0, 0, 0, 0], 'MaterialEmission') ,
-                                  "shininess": osg.Uniform.createFloat1([ 0], 'MaterialShininess')
-                                };
+                                      "diffuse": osg.Uniform.createFloat4([ 0, 0, 0, 0], 'MaterialDiffuse') ,
+                                      "specular": osg.Uniform.createFloat4([ 0, 0, 0, 0], 'MaterialSpecular') ,
+                                      "emission": osg.Uniform.createFloat4([ 0, 0, 0, 0], 'MaterialEmission') ,
+                                      "shininess": osg.Uniform.createFloat1([ 0], 'MaterialShininess')
+                                    };
             var uniformKeys = [];
             for (var k in osg.Material.uniforms) {
                 uniformKeys.push(k);
@@ -3138,10 +3898,6 @@ osg.Material.prototype = {
         return str;
     }
 };
-osg.Material.create = function() {
-    var a = new osg.Material();
-    return a;
-};
 
 
 osg.Light = function () {
@@ -3158,7 +3914,7 @@ osg.Light = function () {
     this.ambient = [ 1.0, 1.0, 1.0, 1.0 ];
     this.diffuse = [ 1.0, 1.0, 1.0, 1.0 ];
     this.specular = [ 1.0, 1.0, 1.0, 1.0 ];
- };
+};
 
 osg.Light.prototype = {
     attributeType: "Light",
@@ -3171,15 +3927,15 @@ osg.Light.prototype = {
         }
         if (osg.Light.uniforms[this.getTypeMember()] === undefined) {
             osg.Light.uniforms[this.getTypeMember()] = { "ambient": osg.Uniform.createFloat4([ 0.2, 0.2, 0.2, 1], this.getParameterName("ambient")) ,
-                                                     "diffuse": osg.Uniform.createFloat4([ 0.8, 0.8, 0.8, 1], this.getParameterName('diffuse')) ,
-                                                     "specular": osg.Uniform.createFloat4([ 0.2, 0.2, 0.2, 1], this.getParameterName('specular')) ,
-                                                     "direction": osg.Uniform.createFloat3([ 0, 0, 1], this.getParameterName('direction')),
-                                                     "constant_attenuation": osg.Uniform.createFloat1( 0, this.getParameterName('constant_attenuation')),
-                                                     "linear_attenuation": osg.Uniform.createFloat1( 0, this.getParameterName('linear_attenuation')),
-                                                     "quadratic_attenuation": osg.Uniform.createFloat1( 0, this.getParameterName('quadratic_attenuation')),
-                                                     "enable": osg.Uniform.createInt1( 0, this.getParameterName('enable')),
-                                                     "matrix": osg.Uniform.createMatrix4(osg.Matrix.makeIdentity(), this.getParameterName('matrix'))
-                                                   };
+                                                         "diffuse": osg.Uniform.createFloat4([ 0.8, 0.8, 0.8, 1], this.getParameterName('diffuse')) ,
+                                                         "specular": osg.Uniform.createFloat4([ 0.2, 0.2, 0.2, 1], this.getParameterName('specular')) ,
+                                                         "direction": osg.Uniform.createFloat3([ 0, 0, 1], this.getParameterName('direction')),
+                                                         "constant_attenuation": osg.Uniform.createFloat1( 0, this.getParameterName('constant_attenuation')),
+                                                         "linear_attenuation": osg.Uniform.createFloat1( 0, this.getParameterName('linear_attenuation')),
+                                                         "quadratic_attenuation": osg.Uniform.createFloat1( 0, this.getParameterName('quadratic_attenuation')),
+                                                         "enable": osg.Uniform.createInt1( 0, this.getParameterName('enable')),
+                                                         "matrix": osg.Uniform.createMatrix4(osg.Matrix.makeIdentity(), this.getParameterName('matrix'))
+                                                       };
 
             var uniformKeys = [];
             for (var k in osg.Light.uniforms[this.getTypeMember()]) {
@@ -3222,7 +3978,7 @@ osg.Light.prototype = {
         switch (type) {
         case osg.ShaderGeneratorType.VertexInit:
             str = [ "",
-                    "varying vec4 Color;",
+                    "varying vec4 LightColor;",
                     "vec3 EyeVector;",
                     "vec3 NormalComputed;",
                     "",
@@ -3278,7 +4034,7 @@ osg.Light.prototype = {
                     "      Diffuse  * MaterialDiffuse;",
                     "      //Specular * MaterialSpecular;",
                     "    localColor = clamp( localColor, 0.0, 1.0 );",
-                    "    Color += localColor;",
+                    "    LightColor += localColor;",
                     "",
                     "}" ].join('\n');
             break;
@@ -3286,17 +4042,17 @@ osg.Light.prototype = {
             str = [ "",
                     "EyeVector = computeEyeDirection();",
                     "NormalComputed = computeNormal();",
-                    "Color = vec4(0,0,0,0);",
+                    "LightColor = vec4(0,0,0,0);",
                     "" ].join('\n');
             break;
         case osg.ShaderGeneratorType.FragmentInit:
-            str = [ "varying vec4 Color;",
+            str = [ "varying vec4 LightColor;",
                     ""
                   ].join('\n');
             break;
         case osg.ShaderGeneratorType.FragmentMain:
             str = [ "",
-                    "fragColor *= Color;"
+                    "fragColor *= LightColor;"
                   ].join('\n');
             break;
         }
@@ -3317,6 +4073,7 @@ osg.Light.prototype = {
                     "uniform float " + this.getParameterName('constantAttenuation') + ";",
                     "uniform float " + this.getParameterName('linearAttenuation') + ";",
                     "uniform float " + this.getParameterName('quadraticAttenuation') + ";",
+                    //                    "uniform mat4 " + this.getParameterName('matrix') + ";",
                     "",
                     "" ].join('\n');
             break;
@@ -3344,7 +4101,13 @@ osg.Light.create = function() {
 };
 
 
-osg.BufferArray = function () {};
+osg.BufferArray = function () {
+    if (osg.BufferArray.instanceID === undefined) {
+        osg.BufferArray.instanceID = 0;
+    }
+    this.instanceID = osg.BufferArray.instanceID;
+    osg.BufferArray.instanceID += 1;
+};
 osg.BufferArray.prototype = {
     init: function() {
         if (!this.buffer && this.elements.length > 0 ) {
@@ -3370,9 +4133,9 @@ osg.BufferArray.create = function(type, elements, itemSize) {
     a.itemSize = itemSize;
     a.type = type;
     if (a.type === gl.ELEMENT_ARRAY_BUFFER) {
-        a.elements = new Uint16Array(elements);
+        a.elements = new osg.Uint16Array(elements);
     } else {
-        a.elements = new Float32Array(elements);
+        a.elements = new osg.Float32Array(elements);
     }
     a.dirty = true;
     return a;
@@ -3418,9 +4181,6 @@ osg.DrawElements = function (mode, indices) {
 osg.DrawElements.prototype = {
     getMode: function() { return this.mode; },
     draw: function(state) {
-        if (this.count > this.indices.numItems || this.count < 0) {
-            this.count = this.indices.numItems;
-        }
         state.setIndexArray(this.indices);
         gl.drawElements(this.mode, this.count, gl.UNSIGNED_SHORT, this.offset );
     },
@@ -3442,14 +4202,26 @@ osg.Geometry = function () {
     osg.Node.call(this);
     this.primitives = [];
     this.attributes = {};
+    this.boundingBox = new osg.BoundingBox();
+    this.boundingBoxComputed = false;
+    this.cacheAttributeList = {};
 };
 
 osg.Geometry.prototype = osg.objectInehrit(osg.Node.prototype, {
+    dirtyBound: function() {
+        if (this.boundingBoxComputed === true) {
+            this.boundingBoxComputed = false;
+        }
+        osg.Node.dirtyBound.call(this);
+    },
+
+    dirty: function() {
+        this.cacheAttributeList = {};
+    },
     getPrimitives: function() { return this.primitives; },
     getAttributes: function() { return this.attributes; },
 
-    drawImplementation: function(state) {
-        
+    drawImplementationTest1: function(state) {
         var program = state.getLastProgramApplied();
         var attribute;
         var attributeList = [];
@@ -3458,41 +4230,241 @@ osg.Geometry.prototype = osg.objectInehrit(osg.Node.prototype, {
         for (var i = 0, l = attributesCache.attributeKeys.length; i < l; i++) {
             var key = attributesCache.attributeKeys[i];
             attribute = attributesCache[key];
-
-            if (this.attributes[key] === undefined) {
+            var attr = this.attributes[key];
+            if (attr === undefined) {
                 continue;
             }
             attributeList.push(attribute);
-            state.setVertexAttribArray(attribute, this.attributes[key], false);
+            state.setVertexAttribArray(attribute, attr, false);
         }
 
         var primitives = this.primitives;
         state.disableVertexAttribsExcept(attributeList);
+
+        state.setIndexArray(primitives[0].indices);
+        gl.drawElements(primitives[0].mode, primitives[0].count, gl.UNSIGNED_SHORT, primitives[0].offset );
+    },
+
+    drawImplementationGenerate: function(state) {
+        var program = state.getLastProgramApplied();
+        var prgID = program.instanceID;
+        if (this.cacheAttributeList[prgID] === undefined) {
+            var attribute;
+            var attributesCache = program.attributesCache;
+            var attributeList = [];
+
+            var generated = "//generated by Geometry::implementation\nfunction(state) {\n";
+            for (var i = 0, l = attributesCache.attributeKeys.length; i < l; i++) {
+                var key = attributesCache.attributeKeys[i];
+                attribute = attributesCache[key];
+                var attr = this.attributes[key];
+                if (attr === undefined) {
+                    continue;
+                }
+                attributeList.push(attribute);
+                generated += "state.setVertexAttribArray(" + attribute + ", this.attributes[\""+key+ "\"], false);\n";
+            }
+            generated += "state.disableVertexAttribsExcept(this.cacheAttributeList["+prgID+"].attributeList);\n";
+            var primitives = this.primitives;
+            generated += "var primitives = this.primitives;\n";
+            for (var j = 0, m = primitives.length; j < m; ++j) {
+                generated += "//primitives["+j+"].draw(state);\n";
+            }
+            generated += "}";
+            var returnFunction = function() {
+                eval("var r = " + generated + ";");
+                osg.log(r);
+                return r;
+            };
+            this.cacheAttributeList[prgID] = {'attributeList': attributeList,
+                                                   'generated': returnFunction() };
+        }
+        this.cacheAttributeList[prgID].generated.call(this, state);
+    },
+
+    drawImplementation: function(state) {
+        var program = state.getLastProgramApplied();
+        var prgID = program.instanceID;
+        if (this.cacheAttributeList[prgID] === undefined) {
+            var attribute;
+            var attributesCache = program.attributesCache;
+            var attributeList = [];
+
+            var generated = "//generated by Geometry::implementation\nfunction(state) {\n";
+            generated += "state.lazyDisablingOfVertexAttributes();\n";
+
+            for (var i = 0, l = attributesCache.attributeKeys.length; i < l; i++) {
+                var key = attributesCache.attributeKeys[i];
+                attribute = attributesCache[key];
+                var attr = this.attributes[key];
+                if (attr === undefined) {
+                    continue;
+                }
+                attributeList.push(attribute);
+                generated += "state.setVertexAttribArrayLazy(" + attribute + ", this.attributes[\""+key+ "\"], false);\n";
+            }
+            generated += "state.applyDisablingOfVertexAttributes();\n";
+            var primitives = this.primitives;
+            generated += "var primitives = this.primitives;\n";
+            for (var j = 0, m = primitives.length; j < m; ++j) {
+                generated += "primitives["+j+"].draw(state);\n";
+            }
+            generated += "}";
+            var returnFunction = function() {
+                osg.log(generated);
+                eval("var r = " + generated + ";");
+                osg.log(r);
+                return r;
+            };
+            this.cacheAttributeList[prgID] = returnFunction();
+        }
+        this.cacheAttributeList[prgID].call(this, state);
+    },
+
+    drawImplementationDummy: function(state) {
+        var program = state.getLastProgramApplied();
+        var attribute;
+        var attributeList = [];
+        var attributesCache = program.attributesCache;
+
+
+        var primitives = this.primitives;
+        //state.disableVertexAttribsExcept(attributeList);
+
+        for (var j = 0, m = primitives.length; j < m; ++j) {
+            //primitives[j].draw(state);
+        }
+    },
+
+
+    drawImplementationOrig: function(state) {
+        var program = state.getLastProgramApplied();
+        var attribute;
+        var attributeList = [];
+        var attributesCache = program.attributesCache;
+
+        for (var i = 0, l = attributesCache.attributeKeys.length; i < l; i++) {
+            var key = attributesCache.attributeKeys[i];
+            attribute = attributesCache[key];
+            var attr = this.attributes[key];
+            if (attr === undefined) {
+                continue;
+            }
+            attributeList.push(attribute);
+            state.setVertexAttribArray(attribute, attr, false);
+        }
+
+        var primitives = this.primitives;
+        state.disableVertexAttribsExcept(attributeList);
+
         for (var j = 0, m = primitives.length; j < m; ++j) {
             primitives[j].draw(state);
         }
+    },
+
+    getBoundingBox: function() {
+        if(!this.boundingBoxComputed) {
+            this.computeBoundingBox(this.boundingBox);
+            this.boundingBoxComputed = true;
+        }
+        return this.boundingBox;
+    },
+    computeBoundingBox: function(boundingBox) {
+	var att = this.getAttributes();
+	if ( att.Vertex.itemSize == 3 ) {
+	    vertexes = att.Vertex.getElements();
+	    for (var idx = 0, l = vertexes.length; idx < l; idx+=3) {
+		var v=[vertexes[idx],vertexes[idx+1],vertexes[idx+2]];
+		boundingBox.expandByVec3(v);
+	    }
+	}
+        return boundingBox;
+    },
+
+    computeBound: function (boundingSphere) {
+	boundingSphere.init();
+	var bb = this.getBoundingBox();
+	boundingSphere.expandByBox(bb);
+	return boundingSphere;
     }
 });
-osg.Geometry.create = function() {
-    var g = new osg.Geometry();
-    return g;
+osg.Geometry.prototype.objectType = osg.objectType.generate("Geometry");
+
+
+osg.CullStack = function() {
+    this.modelviewMatrixStack = [osg.Matrix.makeIdentity()];
+    this.projectionMatrixStack = [osg.Matrix.makeIdentity()];
+    this.viewportStack = [];
 };
 
+osg.CullStack.prototype = {
+    getViewport: function () {
+        if (this.viewportStack.length === 0) {
+            return undefined;
+        }
+        return this.viewportStack[this.viewportStack.length-1];
+    },
+    getLookVectorLocal: function() {
+        var m = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
+        return [ -m[2], -m[6], -m[10] ];
+    },
+    pushViewport: function (vp) {
+        this.viewportStack.push(vp);
+    },
+    popViewport: function () {
+        this.viewportStack.pop();
+    },
+    pushModelviewMatrix: function (matrix) {
+        this.modelviewMatrixStack.push(matrix);
 
+        var lookVector = this.getLookVectorLocal();
+        this.bbCornerFar = (lookVector[0]>=0?1:0) | (lookVector[1]>=0?2:0) | (lookVector[2]>=0?4:0);        
+        this.bbCornerNear = (~this.bbCornerFar)&7;
+    },
+    popModelviewMatrix: function () {
 
-osg.Transform = {
-    RELATIVE_RF: 0,
-    ABSOLUTE_RF: 1,
+        this.modelviewMatrixStack.pop();
+        var lookVector;
+        if (this.modelviewMatrixStack.length !== 0) {
+            lookVector = this.getLookVectorLocal();
+        } else {
+            lookVector = [0,0,-1];
+        }
+        this.bbCornerFar = (lookVector[0]>=0?1:0) | (lookVector[1]>=0?2:0) | (lookVector[2]>=0?4:0);
+        this.bbCornerNear = (~this.bbCornerFar)&7;
+
+    },
+    pushProjectionMatrix: function (matrix) {
+        this.projectionMatrixStack.push(matrix);
+    },
+    popProjectionMatrix: function () {
+        this.projectionMatrixStack.pop();
+    }
 };
+
+osg.CullSettings = function() {
+    this.computeNearFar = true;
+    this.nearFarRatio = 0.0005;
+
+    var lookVector =[0.0,0.0,-1.0];
+    this.bbCornerFar = (lookVector[0]>=0?1:0) | (lookVector[1]>=0?2:0) | (lookVector[2]>=0?4:0);
+    this.bbCornerNear = (~this.bbCornerFar)&7;
+};
+osg.CullSettings.prototype = {
+    setCullSettings: function(settings) {
+        this.computeNearFar = settings.computeNearFar;
+        this.nearFarRatio = settings.nearFarRatio;
+    },
+    setNearFarRatio: function( ratio) { this.nearFarRatio = ratio; },
+    getNearFarRatio: function() { return this.nearFarRatio; },
+    setComputeNearFar: function(value) { this.computeNearFar = value; },
+    getComputeNearFar: function() { return this.computeNearFar; }
+};
+
 
 osg.Camera = function () {
-    if (osg.Camera.PRE_RENDER === undefined) {
-        osg.Camera.PRE_RENDER = 0;
-        osg.Camera.NESTED_RENDER = 1;
-        osg.Camera.POST_RENDER = 2;
-    }
-
-    osg.Node.call(this);
+    osg.Transform.call(this);
+    osg.CullSettings.call(this);
 
     this.viewport = undefined;
     this.setClearColor([0, 0, 0, 1.0]);
@@ -3502,12 +4474,13 @@ osg.Camera = function () {
     this.setProjectionMatrix(osg.Matrix.makeIdentity());
     this.renderOrder = osg.Camera.NESTED_RENDER;
     this.renderOrderNum = 0;
-    this.referenceFrame = osg.Transform.RELATIVE_RF;
 };
+osg.Camera.PRE_RENDER = 0;
+osg.Camera.NESTED_RENDER = 1;
+osg.Camera.POST_RENDER = 2;
 
-osg.Camera.prototype = osg.objectInehrit(osg.Node.prototype, {
-    setReferenceFrame: function(value) { this.referenceFrame = value; },
-    getReferenceFrame: function() { return this.referenceFrame; },
+osg.Camera.prototype = osg.objectInehrit(osg.CullSettings.prototype, 
+                                         osg.objectInehrit(osg.Transform.prototype, {
 
     setClearDepth: function(depth) { this.clearDepth = depth;}, 
     getClearDepth: function() { return this.clearDepth;},
@@ -3548,7 +4521,28 @@ osg.Camera.prototype = osg.objectInehrit(osg.Node.prototype, {
         this.attachments[bufferComponent] = { 'texture' : texture , 'level' : level };
     },
 
-});
+    computeLocalToWorldMatrix: function(matrix,nodeVisitor) {
+        if (this.referenceFrame === osg.Transform.RELATIVE_RF) {
+            osg.Matrix.preMult(matrix, this.modelviewMatrix);
+        } else {// absolute
+            matrix = this.modelviewMatrix;
+        }
+        return true;
+    },
+
+    computeWorldToLocalMatrix: function(matrix, nodeVisitor) {
+        var inverse = osg.Matrix.inverse(this.modelviewMatrix);
+        if (this.referenceFrame === osg.Transform.RELATIVE_RF) {
+            osg.Matrix.postMult(inverse, matrix);
+        } else {
+            matrix = inverse;
+        }
+        return true;
+    }
+
+}));
+osg.Camera.prototype.objectType = osg.objectType.generate("Camera");
+
 
 
 
@@ -3577,21 +4571,7 @@ osg.NodeVisitor.prototype = {
         if (node.traverse !== undefined) {
             node.traverse(this);
         }
-    },
-
-    traverseNew: function ( node ) {
-        if (node.children) {
-            for (var i = 0, l = node.children.length; i < l; i++) {
-                var child = node.children[i];
-
-                var nm = child.getNodeMask();
-                var valid = ((this.traversalMask & (this.nodeMaskOverride | nm)) !== 0);
-                if (valid)
-                    this.apply(child);
-            }
-        }
     }
-
 };
 osg.NodeVisitor.create = function () {
     var nv = new osg.NodeVisitor();
@@ -3683,7 +4663,7 @@ osg.StateGraph.prototype = {
             sg_current = sg_current.parent;
         }
 
-       // use return path to trace back steps to sg_new.
+        // use return path to trace back steps to sg_new.
         stack = [];
 
         // need to pop back up to the same depth as the curr state group.
@@ -3753,12 +4733,12 @@ osg.RenderBin.prototype = {
         }
     },
 
-    drawImplementationNew: function(state, previousRenderLeaf) {
+    drawImplementation: function(state, previousRenderLeaf) {
         var previous = previousRenderLeaf;
         // draw prev bins
         for (var key in this.renderBin) {
             if (key < 0 ) {
-                previous = this.renderBin[key].drawImplementationNew(state, previous);
+                previous = this.renderBin[key].drawImplementation(state, previous);
             }
         }
         
@@ -3766,15 +4746,15 @@ osg.RenderBin.prototype = {
         previous = this.drawLeafs(state, previous);
 
         // draw post bins
-        for (var key in this.renderBin) {
+        for (key in this.renderBin) {
             if (key >= 0 ) {
-                previous = this.renderBin[key].drawImplementationNew(state, previous);
+                previous = this.renderBin[key].drawImplementation(state, previous);
             }
         }
         return previous;
     },
 
-    drawLeafs: function(state, previousRenderLeaf) {
+    drawLeafsTinted: function(state, previousRenderLeaf) {
         // no sort right now
         //this.drawImplementation(state, previousRenderLeaf);
         var stateList = this.stateGraphList;
@@ -3785,6 +4765,99 @@ osg.RenderBin.prototype = {
         var program;
         var stateset;
         var previousLeaf = previousRenderLeaf;
+        var normal = [];
+        var normalTranspose = [];
+
+        if (this.positionedAttribute) {
+            this.applyPositionedAttribute(state, this.positionedAttribute);
+        }
+
+        for (var i = 0, l = stateList.length; i < l; i++) {
+            var sg = stateList[i];
+            for (var j = 0, ll = sg.leafs.length; j < ll; j++) {
+
+                var leaf = sg.leafs[j];
+                var push = false;
+                if (previousLeaf !== undefined) {
+
+                    // apply state if required.
+                    var prev_rg = previousLeaf.parent;
+                    var prev_rg_parent = prev_rg.parent;
+                    var rg = leaf.parent;
+                    if (prev_rg_parent !== rg.parent)
+                    {
+                        rg.moveStateGraph(state, prev_rg_parent, rg.parent);
+
+                        // send state changes and matrix changes to OpenGL.
+                        state.pushStateSet(rg.stateset);
+                        push = true;
+                    }
+                    else if (rg !== prev_rg)
+                    {
+                        // send state changes and matrix changes to OpenGL.
+                        state.pushStateSet(rg.stateset);
+                        push = true;
+                    }
+
+                } else {
+                    leaf.parent.moveStateGraph(state, undefined, leaf.parent.parent);
+                    state.pushStateSet(leaf.parent.stateset);
+                    push = true;
+                }
+
+                if (push === true) {
+                    //state.pushGeneratedProgram();
+                    state.apply();
+                    program = state.getLastProgramApplied();
+
+                    modelViewUniform = program.uniformsCache[state.modelViewMatrix.name];
+                    projectionUniform = program.uniformsCache[state.projectionMatrix.name];
+                    normalUniform = program.uniformsCache[state.normalMatrix.name];
+                }
+
+
+                if (modelViewUniform !== undefined) {
+                    state.modelViewMatrix.set(leaf.modelview);
+                    state.modelViewMatrix.apply(modelViewUniform);
+                }
+                if (projectionUniform !== undefined) {
+                    state.projectionMatrix.set(leaf.projection);
+                    state.projectionMatrix.apply(projectionUniform);
+                }
+                if (normalUniform !== undefined) {
+                    osg.Matrix.copy(leaf.modelview, normal);
+                    osg.Matrix.setTrans(normal, 0, 0, 0);
+                    osg.Matrix.inverse(normal, normal);
+                    osg.Matrix.transpose(normal, normalTranspose);
+                    state.normalMatrix.set(normalTranspose);
+                    state.normalMatrix.apply(normalUniform);
+                }
+
+                leaf.geometry.drawImplementation(state);
+
+                if (push === true) {
+                    state.popGeneratedProgram();
+                    state.popStateSet();
+                }
+
+                previousLeaf = leaf;
+            }
+        }
+        return previousLeaf;
+    },
+    drawLeafsOrig: function(state, previousRenderLeaf) {
+        // no sort right now
+        //this.drawImplementation(state, previousRenderLeaf);
+        var stateList = this.stateGraphList;
+        var leafs = this.leafs;
+        var normalUniform;
+        var modelViewUniform;
+        var projectionUniform;
+        var program;
+        var stateset;
+        var previousLeaf = previousRenderLeaf;
+        var normal = [];
+        var normalTranspose = [];
 
         if (this.positionedAttribute) {
             this.applyPositionedAttribute(state, this.positionedAttribute);
@@ -3842,11 +4915,11 @@ osg.RenderBin.prototype = {
                     state.projectionMatrix.apply(projectionUniform);
                 }
                 if (normalUniform !== undefined && normalUniform !== null && normalUniform !== -1 ) {
-                    var normal = osg.Matrix.copy(leaf.modelview);
+                    osg.Matrix.copy(leaf.modelview, normal);
                     osg.Matrix.setTrans(normal, 0, 0, 0);
                     osg.Matrix.inverse(normal, normal);
-                    osg.Matrix.transpose(normal, normal);
-                    state.normalMatrix.set(normal);
+                    osg.Matrix.transpose(normal, normalTranspose);
+                    state.normalMatrix.set(normalTranspose);
                     state.normalMatrix.apply(normalUniform);
                 }
 
@@ -3862,90 +4935,94 @@ osg.RenderBin.prototype = {
         }
         return previousLeaf;
     },
-
-    drawImplementation: function(state, previousRenderLeaf) {
-        var stateList = this.stateGraph;
-        var stackLength = stateList.length;
+    drawLeafs: function(state, previousRenderLeaf) {
+        // no sort right now
+        //this.drawImplementation(state, previousRenderLeaf);
+        var stateList = this.stateGraphList;
         var leafs = this.leafs;
         var normalUniform;
         var modelViewUniform;
         var projectionUniform;
         var program;
         var stateset;
-        var leaf;
         var previousLeaf = previousRenderLeaf;
+        var normal = [];
+        var normalTranspose = [];
 
         if (this.positionedAttribute) {
             this.applyPositionedAttribute(state, this.positionedAttribute);
         }
 
-        // should be re written to draw following state graph
-        for (var i = 0, leafsLength = this.leafs.length; i < leafsLength; i++) {
+        for (var i = 0, l = stateList.length; i < l; i++) {
+            var sg = stateList[i];
+            for (var j = 0, ll = sg.leafs.length; j < ll; j++) {
 
-            leaf = leafs[i];
-            var push = false;
-            if (previousLeaf !== undefined) {
+                var leaf = sg.leafs[j];
+                var push = false;
+                if (previousLeaf !== undefined) {
 
-                // apply state if required.
-                var prev_rg = previousLeaf.parent;
-                var prev_rg_parent = prev_rg.parent;
-                var rg = leaf.parent;
-                if (prev_rg_parent !== rg.parent)
-                {
-                    rg.moveStateGraph(state, prev_rg_parent, rg.parent);
+                    // apply state if required.
+                    var prev_rg = previousLeaf.parent;
+                    var prev_rg_parent = prev_rg.parent;
+                    var rg = leaf.parent;
+                    if (prev_rg_parent !== rg.parent)
+                    {
+                        rg.moveStateGraph(state, prev_rg_parent, rg.parent);
 
-                    // send state changes and matrix changes to OpenGL.
-                    state.pushStateSet(rg.stateset);
+                        // send state changes and matrix changes to OpenGL.
+                        state.pushStateSet(rg.stateset);
+                        push = true;
+                    }
+                    else if (rg !== prev_rg)
+                    {
+                        // send state changes and matrix changes to OpenGL.
+                        state.pushStateSet(rg.stateset);
+                        push = true;
+                    }
+
+                } else {
+                    leaf.parent.moveStateGraph(state, undefined, leaf.parent.parent);
+                    state.pushStateSet(leaf.parent.stateset);
                     push = true;
                 }
-                else if (rg !== prev_rg)
-                {
-                    // send state changes and matrix changes to OpenGL.
-                    state.pushStateSet(rg.stateset);
-                    push = true;
+
+                if (push === true) {
+                    //state.pushGeneratedProgram();
+                    state.apply();
+                    program = state.getLastProgramApplied();
+
+                    modelViewUniform = program.uniformsCache[state.modelViewMatrix.name];
+                    projectionUniform = program.uniformsCache[state.projectionMatrix.name];
+                    normalUniform = program.uniformsCache[state.normalMatrix.name];
                 }
 
-            } else {
-                leaf.parent.moveStateGraph(state, undefined, leaf.parent.parent);
-                state.pushStateSet(leaf.parent.stateset);
-                push = true;
-            }
 
-            if (push === true) {
-                //state.pushGeneratedProgram();
-                state.apply();
-            }
+                if (modelViewUniform !== undefined) {
+                    state.modelViewMatrix.set(leaf.modelview);
+                    state.modelViewMatrix.apply(modelViewUniform);
+                }
+                if (projectionUniform !== undefined) {
+                    state.projectionMatrix.set(leaf.projection);
+                    state.projectionMatrix.apply(projectionUniform);
+                }
+                if (normalUniform !== undefined) {
+                    osg.Matrix.copy(leaf.modelview, normal);
+                    osg.Matrix.setTrans(normal, 0, 0, 0);
+                    osg.Matrix.inverse(normal, normal);
+                    osg.Matrix.transpose(normal, normalTranspose);
+                    state.normalMatrix.set(normalTranspose);
+                    state.normalMatrix.apply(normalUniform);
+                }
 
-            program = state.getLastProgramApplied();
-            modelViewUniform = program.uniformsCache[state.modelViewMatrix.name];
-            projectionUniform = program.uniformsCache[state.projectionMatrix.name];
-            normalUniform = program.uniformsCache[state.normalMatrix.name];
+                leaf.geometry.drawImplementation(state);
 
-            if (modelViewUniform !== undefined && modelViewUniform !== null && modelViewUniform !== -1) {
-                state.modelViewMatrix.set(leaf.modelview);
-                state.modelViewMatrix.apply(modelViewUniform);
-            }
-            if (projectionUniform !== undefined && projectionUniform !== null && projectionUniform != -1) {
-                state.projectionMatrix.set(leaf.projection);
-                state.projectionMatrix.apply(projectionUniform);
-            }
-            if (normalUniform !== undefined && normalUniform !== null && normalUniform !== -1 ) {
-                var normal = osg.Matrix.copy(leaf.modelview);
-                osg.Matrix.setTrans(normal, 0, 0, 0);
-                osg.Matrix.inverse(normal, normal);
-                osg.Matrix.transpose(normal, normal);
-                state.normalMatrix.set(normal);
-                state.normalMatrix.apply(normalUniform);
-            }
+                if (push === true) {
+                    state.popGeneratedProgram();
+                    state.popStateSet();
+                }
 
-            leaf.geometry.drawImplementation(state);
-
-            if (push === true) {
-                state.popGeneratedProgram();
-                state.popStateSet();
+                previousLeaf = leaf;
             }
-
-            previousLeaf = leaf;
         }
         return previousLeaf;
     }
@@ -3975,7 +5052,7 @@ osg.RenderStage = function () {
 };
 osg.RenderStage.prototype = osg.objectInehrit(osg.RenderBin.prototype, {
     reset: function() { 
-        this.superObject.reset.call(this);
+        osg.RenderBin.prototype.reset.call(this);
         this.preRenderList.length = 0;
         this.postRenderList.length = 0;
     },
@@ -4061,8 +5138,8 @@ osg.RenderStage.prototype = osg.objectInehrit(osg.RenderBin.prototype, {
     },
 
     drawImplementation: function(state, previousRenderLeaf) {
+        var error;
         if (osg.reportErrorGL === true) {
-            var error;
             error = gl.getError();
             osg.checkError(error);
         }
@@ -4087,7 +5164,7 @@ osg.RenderStage.prototype = osg.objectInehrit(osg.RenderBin.prototype, {
             this.applyPositionedAttribute(state, this.positionedAttribute);
         }
 
-        var previous = this.superObject.drawImplementationNew.call(this, state, previousRenderLeaf);
+        var previous = osg.RenderBin.prototype.drawImplementation.call(this, state, previousRenderLeaf);
 
         if (osg.reportErrorGL === true) {
             error = gl.getError();
@@ -4098,8 +5175,6 @@ osg.RenderStage.prototype = osg.objectInehrit(osg.RenderBin.prototype, {
         //debugger;
         //state.apply();
     }
-    
-    
 });
 
 
@@ -4138,127 +5213,155 @@ osg.UpdateVisitor.prototype = osg.objectInehrit(osg.NodeVisitor.prototype, {
 });
 
 
+
+
 osg.CullVisitor = function () {
     osg.NodeVisitor.call(this);
-    this.modelviewMatrixStack = [osg.Matrix.makeIdentity()];
-    this.projectionMatrixStack = [osg.Matrix.makeIdentity()];
-    this.stateGraph = new osg.StateGraph();
-    this.stateGraph.stateset = new osg.StateSet();
-    this.currentStateGraph = this.stateGraph;
-    this.renderBin = new osg.RenderBin(this.stateGraph);
-};
-osg.CullVisitor.prototype = osg.objectInehrit(osg.NodeVisitor.prototype, {
-    // should reuse object
-    reset: function () {
-        this.modelviewMatrixStack.length = 1;
-        this.projectionMatrixStack.length = 1;
-        this.stateGraph = new osg.StateGraph();
-        this.stateGraph.stateset = new osg.StateSet();
-        this.currentStateGraph = this.stateGraph;
-        this.renderBin = new osg.RenderBin(this.stateGraph);
-    },
-    addPositionedAttribute: function (attribute) {
-        var sg = this.stateGraph;
-        while (sg.parent !== undefined) {
-            sg = sg.parent;
-        }
-        var matrix = this.modelviewMatrixStack[this.modelviewMatrixStack.length - 1];
-        this.renderBin.positionedAttribute.push([matrix, attribute]);
-    },
-    pushStateSet: function (stateset) {
-        this.currentStateGraph = this.currentStateGraph.findOrInsert(stateset);
-    },
-    popStateSet: function () {
-        this.currentStateGraph = this.currentStateGraph.parent;
-    },
-    pushModelviewMatrix: function (matrix) {
-        var computeMatrix;
-        var lastMatrix;
-        lastMatrix = osg.Matrix.copy(this.modelviewMatrixStack[this.modelviewMatrixStack.length-1]);
-        // need to check order
-        computeMatrix = osg.Matrix.mult(matrix, lastMatrix);
-        this.modelviewMatrixStack.push(computeMatrix);
-    },
-    popModelviewMatrix: function () {
-        this.modelviewMatrixStack.pop();
-    },
-    pushProjectionMatrixOld: function (matrix) {
-        var computeMatrix;
-        var lastMatrix;
-        lastMatrix = osg.Matrix.copy(this.projectionMatrixStack[this.projectionMatrixStack.length-1]);
-        // need to check order
-        computeMatrix = osg.Matrix.mult(matrix, lastMatrix);
-        this.projectionMatrixStack.push(computeMatrix);
-    },
-    pushProjectionMatrix: function (matrix) {
-        this.projectionMatrixStack.push(matrix);
-    },
-    popProjectionMatrix: function () {
-        this.projectionMatrixStack.pop();
-    },
-    apply: function( node ) {
-        if (node.getMatrix) {
-            this.pushModelviewMatrix(node.getMatrix());
-        } else if (node.getViewMatrix) {
-            this.pushModelviewMatrix(node.getViewMatrix());
-        }
-
-        if (node.getProjectionMatrix) {
-            var lastMatrix = this.projectionMatrixStack[this.projectionMatrixStack.length-1];
-            this.pushProjectionMatrix(osg.Matrix.mult(node.getProjectionMatrix(), lastMatrix));
-        }
-
-        if (node.stateset) {
-            this.pushStateSet(node.stateset);
-        }
-        if (node.light) {
-            this.addPositionedAttribute(node.light);
-        }
-        if (node.drawImplementation) {
-            var leafs = this.renderBin.leafs;
-            leafs.push(
-                {
-                    "parent": this.currentStateGraph,
-                    "modelview": this.modelviewMatrixStack[this.modelviewMatrixStack.length-1],
-                    "projection": this.projectionMatrixStack[this.projectionMatrixStack.length-1],
-                    "geometry": node
-                }
-            );
-        }
-
-        if (node.traverse) {
-            this.traverse(node);
-        }
-
-        if (node.stateset) {
-            this.popStateSet();
-        }
-
-        if (node.getMatrix || node.getViewMatrix !== undefined) {
-            this.popModelviewMatrix();
-        }
-        if (node.getProjectionMatrix !== undefined) {
-            this.popProjectionMatrix();
-        }
-    }
-});
-
-
-
-osg.CullVisitorNew = function () {
-    osg.NodeVisitor.call(this);
-    this.modelviewMatrixStack = [osg.Matrix.makeIdentity()];
-    this.projectionMatrixStack = [osg.Matrix.makeIdentity()];
-    this.viewportStack = [];
+    osg.CullSettings.call(this);
+    osg.CullStack.call(this);
 
     this.rootStateGraph = undefined;
     this.currentStateGraph = undefined;
     this.currentRenderBin = undefined;
     this.currentRenderStage = undefined;
     this.rootRenderStage = undefined;
+
+    this.computeNearFar = true;
+    this.computedNear = Number.POSITIVE_INFINITY;
+    this.computedFar = Number.NEGATIVE_INFINITY;
+
+    var lookVector =[0.0,0.0,-1.0];
+    this.bbCornerFar = (lookVector[0]>=0?1:0) | (lookVector[1]>=0?2:0) | (lookVector[2]>=0?4:0);
+    this.bbCornerNear = (~this.bbCornerFar)&7;
+
+
+    // keep a matrix in memory to avoid to create matrix
+    this.reserveMatrixStack = [[]];
+    this.reserveMatrixStack.current = 0;
+
 };
 
-osg.CullVisitorNew.prototype = osg.objectInehrit(osg.NodeVisitor.prototype, {
+osg.CullVisitor.prototype = osg.objectInehrit(osg.CullStack.prototype ,osg.objectInehrit(osg.CullSettings.prototype, osg.objectInehrit(osg.NodeVisitor.prototype, {
+    distance: function(coord,matrix) {
+        return -( coord[0]*matrix[2]+ coord[1]*matrix[6] + coord[2]*matrix[10] + matrix[14]);
+    },
+    updateCalculatedNearFar: function( matrix, drawable) {
+
+        var bb = drawable.getBoundingBox();
+        var d_near, d_far;
+
+        // efficient computation of near and far, only taking into account the nearest and furthest
+        // corners of the bounding box.
+        d_near = this.distance(bb.corner(this.bbCornerNear),matrix);
+        d_far = this.distance(bb.corner(this.bbCornerFar),matrix);
+        
+        if (d_near>d_far) {
+            var tmp = d_near;
+            d_near = d_far;
+            d_far = tmp;
+        }
+
+        if (d_far<0.0) {
+            // whole object behind the eye point so discard
+            return false;
+        }
+
+        if (d_near<this.computedNear) {
+            this.computedNear = d_near;
+        }
+
+        if (d_far>this.computedFar) {
+            this.computedFar = d_far;
+        }
+
+        return true;
+    },
+
+    clampProjectionMatrix: function(projection, znear, zfar, nearFarRatio, resultNearFar) {
+        var epsilon = 1e-6;
+        if (zfar<znear-epsilon) {
+            osg.log("clampProjectionMatrix not applied, invalid depth range, znear = " + znear + "  zfar = " + zfar);
+            return false;
+        }
+        
+        var desired_znear, desired_zfar;
+        if (zfar<znear+epsilon) {
+            // znear and zfar are too close together and could cause divide by zero problems
+            // late on in the clamping code, so move the znear and zfar apart.
+            var average = (znear+zfar)*0.5;
+            znear = average-epsilon;
+            zfar = average+epsilon;
+            // OSG_INFO << "_clampProjectionMatrix widening znear and zfar to "<<znear<<" "<<zfar<<std::endl;
+        }
+
+        if (Math.abs(osg.Matrix.get(projection,0,3))<epsilon  && 
+            Math.abs(osg.Matrix.get(projection,1,3))<epsilon  && 
+            Math.abs(osg.Matrix.get(projection,2,3))<epsilon ) {
+            // OSG_INFO << "Orthographic matrix before clamping"<<projection<<std::endl;
+
+            var delta_span = (zfar-znear)*0.02;
+            if (delta_span<1.0) {
+		delta_span = 1.0;
+	    }
+            desired_znear = znear - delta_span;
+            desired_zfar = zfar + delta_span;
+
+            // assign the clamped values back to the computed values.
+            znear = desired_znear;
+            zfar = desired_zfar;
+
+            osg.Matrix.set(projection,2,2, -2.0/(desired_zfar-desired_znear));
+            osg.Matrix.set(projection,3,2, -(desired_zfar+desired_znear)/(desired_zfar-desired_znear));
+
+            // OSG_INFO << "Orthographic matrix after clamping "<<projection<<std::endl;
+        } else {
+
+            // OSG_INFO << "Persepective matrix before clamping"<<projection<<std::endl;
+            //std::cout << "_computed_znear"<<_computed_znear<<std::endl;
+            //std::cout << "_computed_zfar"<<_computed_zfar<<std::endl;
+
+            var zfarPushRatio = 1.02;
+            var znearPullRatio = 0.98;
+
+            //znearPullRatio = 0.99; 
+
+            desired_znear = znear * znearPullRatio;
+            desired_zfar = zfar * zfarPushRatio;
+
+            // near plane clamping.
+            var min_near_plane = zfar*nearFarRatio;
+            if (desired_znear<min_near_plane) {
+		desired_znear=min_near_plane;
+	    }
+
+            // assign the clamped values back to the computed values.
+            znear = desired_znear;
+            zfar = desired_zfar;
+            
+            var m22 = osg.Matrix.get(projection,2,2);
+            var m32 = osg.Matrix.get(projection,3,2);
+            var m23 = osg.Matrix.get(projection,2,3);
+            var m33 = osg.Matrix.get(projection,3,3);
+            var trans_near_plane = (-desired_znear*m22 + m32)/(-desired_znear*m23+m33);
+            var trans_far_plane = (-desired_zfar*m22+m32)/(-desired_zfar*m23+m33);
+
+            var ratio = Math.abs(2.0/(trans_near_plane-trans_far_plane));
+            var center = -(trans_near_plane+trans_far_plane)/2.0;
+
+            var matrix = [1.0,0.0,0.0,0.0,
+                          0.0,1.0,0.0,0.0,
+                          0.0,0.0,ratio,0.0,
+                          0.0,0.0,center*ratio,1.0];
+            osg.Matrix.postMult(matrix, projection);
+            // OSG_INFO << "Persepective matrix after clamping"<<projection<<std::endl;
+        }
+        if (resultNearFar !== undefined) {
+            resultNearFar[0] = znear;
+            resultNearFar[1] = zfar;
+        }
+        return true;
+    },
+
     setStateGraph: function(sg) {
         this.rootStateGraph = sg;
         this.currentStateGraph = sg;
@@ -4270,6 +5373,7 @@ osg.CullVisitorNew.prototype = osg.objectInehrit(osg.NodeVisitor.prototype, {
     reset: function () {
         this.modelviewMatrixStack.length = 1;
         this.projectionMatrixStack.length = 1;
+        this.reserveMatrixStack.current = 0;
     },
     getCurrentRenderBin: function() { return this.currentRenderBin; },
     setCurrentRenderBin: function(rb) { this.currentRenderBin = rb; },
@@ -4283,125 +5387,22 @@ osg.CullVisitorNew.prototype = osg.objectInehrit(osg.NodeVisitor.prototype, {
     popStateSet: function () {
         this.currentStateGraph = this.currentStateGraph.parent;
     },
-    getViewport: function () {
-        if (this.viewportStack.length === 0) {
-            return undefined;
-        }
-        return this.viewportStack[this.viewportStack.length-1];
-    },
-    pushViewport: function (vp) {
-        this.viewportStack.push(vp);
-    },
-    popViewport: function () {
-        this.viewportStack.pop();
-    },
-    pushModelviewMatrix: function (matrix) {
-        this.modelviewMatrixStack.push(matrix);
-    },
-    popModelviewMatrix: function () {
-        this.modelviewMatrixStack.pop();
-    },
-    pushProjectionMatrix: function (matrix) {
-        this.projectionMatrixStack.push(matrix);
-    },
+
+
     popProjectionMatrix: function () {
-        this.projectionMatrixStack.pop();
+        if (this.computeNearFar === true && this.computedFar >= this.computedNear) {
+            var m = this.projectionMatrixStack[this.projectionMatrixStack.length-1];
+            this.clampProjectionMatrix(m, this.computedNear, this.computedFar, this.nearFarRatio);
+        }
+        osg.CullStack.prototype.popProjectionMatrix.call(this);
     },
 
-    applyCamera: function( camera ) {
-        if (camera.stateset) {
-            this.pushStateSet(camera.stateset);
-        }
-
-        if (camera.light) {
-            this.addPositionedAttribute(camera.light);
-        }
-            
-        var originalModelView = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
-
-        var modelview;
-        var projection;
-        if (camera.getReferenceFrame() === osg.Transform.RELATIVE_RF) {
-            var lastProjectionMatrix = this.projectionMatrixStack[this.projectionMatrixStack.length-1];
-            projection = osg.Matrix.mult(camera.getProjectionMatrix(), lastProjectionMatrix);
-            this.pushProjectionMatrix(projection);
-            var lastViewMatrix = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
-            modelview = osg.Matrix.mult(camera.getViewMatrix(), lastViewMatrix);
-            this.pushModelviewMatrix(modelview);
-        } else {
-            // absolute
-            modelview = osg.Matrix.copy(camera.getViewMatrix());
-            projection = osg.Matrix.copy(camera.getProjectionMatrix());
-            this.pushProjectionMatrix(projection);
-            this.pushModelviewMatrix(modelview);
-        }
-
-        if (camera.getViewport()) {
-            this.pushViewport(camera.getViewport());
-        }
-
-        // nested camera
-        if (camera.getRenderOrder() === osg.Camera.NESTED_RENDER) {
-            
-            if (camera.traverse) {
-                this.traverse(camera);
-            }
-            
-        } else {
-            // not tested
-
-            var previous_stage = this.getCurrentRenderBin().getStage();
-
-            // use render to texture stage
-            var rtts = new osg.RenderStage();
-            rtts.setCamera(camera);
-            rtts.setClearDepth(camera.getClearDepth());
-            rtts.setClearColor(camera.getClearColor());
-
-            rtts.setClearMask(camera.getClearMask());
-         
-            var vp;
-            if (camera.getViewport() === undefined) {
-                vp = previous_stage.getViewport();
-            } else {
-                vp = camera.getViewport();
-            }
-            rtts.setViewport(vp);
-            
-            // skip positional state for now
-            // ...
-
-            var previousRenderBin = this.getCurrentRenderBin();
-
-            this.setCurrentRenderBin(rtts);
-
-            if (camera.traverse) {
-                camera.traverse(this);
-            }
-
-            this.setCurrentRenderBin(previousRenderBin);
-
-            if (camera.getRenderOrder() === osg.Camera.PRE_RENDER) {
-                this.getCurrentRenderBin().getStage().addPreRenderStage(rtts,camera.renderOrderNum);
-            } else {
-                this.getCurrentRenderBin().getStage().addPostRenderStage(rtts,camera.renderOrderNum);
-            }
-        }
-
-        this.popModelviewMatrix();
-        this.popProjectionMatrix();
-
-        if (camera.getViewport()) {
-            this.popViewport();
-        }
-
-        if (camera.stateset) {
-            this.popStateSet();
-        }
-
-    },
 
     apply: function( node ) {
+        this[node.objectType].call(this, node);
+    },
+
+    applyOrig: function( node ) {
         var lastMatrixStack;
         var matrix;
 
@@ -4413,18 +5414,35 @@ osg.CullVisitorNew.prototype = osg.objectInehrit(osg.NodeVisitor.prototype, {
         if (node.getMatrix) {
 
             lastMatrixStack = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
-            matrix = osg.Matrix.mult(node.getMatrix(), lastMatrixStack);
+            matrix = osg.Matrix.mult(lastMatrixStack, node.getMatrix(), []);
             this.pushModelviewMatrix(matrix);
         } else if (node.getViewMatrix) {
             lastMatrixStack = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
-            matrix = osg.Matrix.mult(node.getViewMatrix(), lastMatrixStack);
+            matrix = osg.Matrix.mult(lastMatrixStack, node.getViewMatrix(), []);
             this.pushModelviewMatrix(matrix);
         }
 
         if (node.getProjectionMatrix) {
             lastMatrixStack = this.projectionMatrixStack[this.projectionMatrixStack.length-1];
-            matrix = osg.Matrix.mult(node.getProjectionMatrix(), lastMatrixStack);
+            matrix = osg.Matrix.mult(lastMatrixStack, node.getProjectionMatrix(), []);
             this.pushProjectionMatrix(matrix);
+        }
+
+
+        if (node.drawImplementation) {
+            matrix = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
+            var bb = node.getBoundingBox();
+            if (this.computeNearFar && bb.valid()) {
+                if (!this.updateCalculatedNearFar(matrix,node)) {
+                    if (node.traverse) {
+                        this.traverse(node);
+                        if (node.getMatrix || node.getViewMatrix !== undefined) {
+                            this.popModelviewMatrix();
+                        }
+                    }
+                    return;
+                }
+            }
         }
 
         if (node.stateset) {
@@ -4433,7 +5451,9 @@ osg.CullVisitorNew.prototype = osg.objectInehrit(osg.NodeVisitor.prototype, {
         if (node.light) {
             this.addPositionedAttribute(node.light);
         }
+
         if (node.drawImplementation) {
+
             var leafs = this.currentStateGraph.leafs;
             if (leafs.length === 0) {
                 this.currentRenderBin.addStateGraph(this.currentStateGraph);
@@ -4462,20 +5482,246 @@ osg.CullVisitorNew.prototype = osg.objectInehrit(osg.NodeVisitor.prototype, {
         if (node.getProjectionMatrix !== undefined) {
             this.popProjectionMatrix();
         }
+    },
+
+    getReservedMatrix: function() {
+        var m = this.reserveMatrixStack[this.reserveMatrixStack.current++];
+        if (this.reserveMatrixStack.current === this.reserveMatrixStack.length) {
+            this.reserveMatrixStack.push(osg.Matrix.makeIdentity());
+        }
+        return m;
     }
-});
+
+})));
+osg.CullVisitor.prototype[osg.Camera.prototype.objectType] = function( camera ) {
+    if (camera.stateset) {
+        this.pushStateSet(camera.stateset);
+    }
+
+    if (camera.light) {
+        this.addPositionedAttribute(camera.light);
+    }
+
+    var originalModelView = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
+
+    var modelview;
+    var projection;
+    if (camera.getReferenceFrame() === osg.Transform.RELATIVE_RF) {
+        var lastProjectionMatrix = this.projectionMatrixStack[this.projectionMatrixStack.length-1];
+        projection = this.getReservedMatrix();
+        osg.Matrix.mult(lastProjectionMatrix, camera.getProjectionMatrix(), projection);
+        this.pushProjectionMatrix(projection);
+        var lastViewMatrix = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
+        modelview = this.getReservedMatrix();
+        osg.Matrix.mult(lastViewMatrix, camera.getViewMatrix(), modelview);
+        this.pushModelviewMatrix(modelview);
+    } else {
+        // absolute
+        modelview = osg.Matrix.copy(camera.getViewMatrix());
+        projection = osg.Matrix.copy(camera.getProjectionMatrix());
+        this.pushProjectionMatrix(projection);
+        this.pushModelviewMatrix(modelview);
+    }
+
+    if (camera.getViewport()) {
+        this.pushViewport(camera.getViewport());
+    }
+
+    // save current state of the camera
+    var previous_znear = this.computedNear;
+    var previous_zfar = this.computedFar;
+    var previous_cullsettings = new osg.CullSettings();
+    previous_cullsettings.setCullSettings(this);
+
+    this.computedNear = Number.POSITIVE_INFINITY;
+    this.computedFar = Number.NEGATIVE_INFINITY;
+    this.setCullSettings(camera);
+
+    // nested camera
+    if (camera.getRenderOrder() === osg.Camera.NESTED_RENDER) {
+        
+        if (camera.traverse) {
+            this.traverse(camera);
+        }
+        
+    } else {
+        // not tested
+
+        var previous_stage = this.getCurrentRenderBin().getStage();
+
+        // use render to texture stage
+        var rtts = new osg.RenderStage();
+        rtts.setCamera(camera);
+        rtts.setClearDepth(camera.getClearDepth());
+        rtts.setClearColor(camera.getClearColor());
+
+        rtts.setClearMask(camera.getClearMask());
+        
+        var vp;
+        if (camera.getViewport() === undefined) {
+            vp = previous_stage.getViewport();
+        } else {
+            vp = camera.getViewport();
+        }
+        rtts.setViewport(vp);
+        
+        // skip positional state for now
+        // ...
+
+        var previousRenderBin = this.getCurrentRenderBin();
+
+        this.setCurrentRenderBin(rtts);
+
+        if (camera.traverse) {
+            camera.traverse(this);
+        }
+
+        this.setCurrentRenderBin(previousRenderBin);
+
+        if (camera.getRenderOrder() === osg.Camera.PRE_RENDER) {
+            this.getCurrentRenderBin().getStage().addPreRenderStage(rtts,camera.renderOrderNum);
+        } else {
+            this.getCurrentRenderBin().getStage().addPostRenderStage(rtts,camera.renderOrderNum);
+        }
+    }
+
+    this.popModelviewMatrix();
+    this.popProjectionMatrix();
+
+    if (camera.getViewport()) {
+        this.popViewport();
+    }
+
+    // restore previous state of the camera
+    this.setCullSettings(previous_cullsettings);
+    this.computedNear = previous_znear;
+    this.computedFar = previous_zfar;
+
+    if (camera.stateset) {
+        this.popStateSet();
+    }
+
+};
+
+
+osg.CullVisitor.prototype[osg.MatrixTransform.prototype.objectType] = function (node) {
+
+    var lastMatrixStack = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
+
+//    if (this.reserveMatrixStack.current === this.reserveMatrixStack.length) {
+//    }
+//    var matrix = this.reserveMatrixStack[this.reserveMatrixStack.current++];
+//    this.reserveMatrixStack.current = 0;
+
+    var matrix = this.getReservedMatrix();
+    osg.Matrix.mult(lastMatrixStack, node.getMatrix(), matrix);
+
+    //var matrix = osg.Matrix.mult(lastMatrixStack, node.getMatrix(), []);
+    this.pushModelviewMatrix(matrix);
+
+    if (node.stateset) {
+        this.pushStateSet(node.stateset);
+    }
+
+    if (node.light) {
+        this.addPositionedAttribute(node.light);
+    }
+
+    if (node.traverse) {
+        this.traverse(node);
+    }
+
+    if (node.stateset) {
+        this.popStateSet();
+    }
+    
+    this.popModelviewMatrix();
+
+};
+
+osg.CullVisitor.prototype[osg.Projection.prototype.objectType] = function (node) {
+    lastMatrixStack = this.projectionMatrixStack[this.projectionMatrixStack.length-1];
+    var matrix = this.getReservedMatrix();
+    osg.Matrix.mult(lastMatrixStack, node.getProjectionMatrix(), matrix);
+    this.pushProjectionMatrix(matrix);
+
+    if (node.stateset) {
+        this.pushStateSet(node.stateset);
+    }
+
+    if (node.traverse) {
+        this.traverse(node);
+    }
+
+    if (node.stateset) {
+        this.popStateSet();
+    }
+
+    this.popProjectionMatrix();
+};
+
+osg.CullVisitor.prototype[osg.Node.prototype.objectType] = function (node) {
+
+    if (node.stateset) {
+        this.pushStateSet(node.stateset);
+    }
+    if (node.light) {
+        this.addPositionedAttribute(node.light);
+    }
+
+    if (node.traverse) {
+        this.traverse(node);
+    }
+
+    if (node.stateset) {
+        this.popStateSet();
+    }
+};
+osg.CullVisitor.prototype[osg.Geometry.prototype.objectType] = function (node) {
+    matrix = this.modelviewMatrixStack[this.modelviewMatrixStack.length-1];
+    var bb = node.getBoundingBox();
+    if (this.computeNearFar && bb.valid()) {
+        if (!this.updateCalculatedNearFar(matrix,node)) {
+            return;
+        }
+    }
+
+    if (node.stateset) {
+        this.pushStateSet(node.stateset);
+    }
+
+    var leafs = this.currentStateGraph.leafs;
+    if (leafs.length === 0) {
+        this.currentRenderBin.addStateGraph(this.currentStateGraph);
+    }
+    leafs.push(
+        {
+            "parent": this.currentStateGraph,
+            "modelview": this.modelviewMatrixStack[this.modelviewMatrixStack.length-1],
+            "projection": this.projectionMatrixStack[this.projectionMatrixStack.length-1],
+            "geometry": node
+        }
+    );
+
+    if (node.stateset) {
+        this.popStateSet();
+    }
+};
+
+
+
 
 osg.ParseSceneGraph = function (node)
 {
     var newnode;
     if (node.primitives) {
-        newnode = osg.Geometry.create();
+        newnode = new osg.Geometry();
         jQuery.extend(newnode, node);
         node = newnode;
 
         var i;
         for ( i in node.primitives) {
-            var mode = node.primitives[i].mode
+            var mode = node.primitives[i].mode;
             if (node.primitives[i].indices) {
                 var array = node.primitives[i].indices;
                 array = osg.BufferArray.create(gl[array.type], array.elements, array.itemSize );
@@ -4489,13 +5735,10 @@ osg.ParseSceneGraph = function (node)
                 mode = gl[mode];
                 var first = node.primitives[i].first;
                 var count = node.primitives[i].count;
-                if (count > 65535)
-                    count = 32740;
                 node.primitives[i] = new osg.DrawArrays(mode, first, count);
             }
         }
     }
-
 
     if (node.attributes) {
         jQuery.each(node.attributes, function( key, element) {
@@ -4510,22 +5753,26 @@ osg.ParseSceneGraph = function (node)
         if (node.stateset.textures) {
             var textures = node.stateset.textures;
             for (var t = 0, tl = textures.length; t < tl; t++) {
-                if (textures[t] === undefined) {
-                    continue;
-                }
                 if (!textures[t].file) {
                     if (console !== undefined) {
                         console.log("no 'file' field for texture " + textures[t]);
                     }
+                    continue;
                 }
-                var tex = osg.Texture.create(textures[t].file);
+                var tex = new osg.Texture();
+                jQuery.extend(tex, textures[t]);
+                var img = new Image();
+                img.src = textures[t].file;
+                tex.setImage(img);
+                
+                //var tex = osg.Texture.create(textures[t].file);
                 newstateset.setTexture(t, tex);
                 newstateset.addUniform(osg.Uniform.createInt1(t,"Texture" + t));
             }
         }
         if (node.stateset.material) {
             var material = node.stateset.material;
-            var newmaterial = osg.Material.create();
+            var newmaterial = new osg.Material();
             jQuery.extend(newmaterial, material);
             newstateset.setAttribute(newmaterial);
         }
@@ -4547,9 +5794,12 @@ osg.ParseSceneGraph = function (node)
     }
 
     if (node.children) {
-        newnode = new osg.Node();
-        jQuery.extend(newnode, node);
-        node = newnode;
+
+        if (node.children === undefined) {
+            newnode = new osg.Node();
+            jQuery.extend(newnode, node);
+            node = newnode;
+        }
 
         for (var child = 0, childLength = node.children.length; child < childLength; child++) {
             node.children[child] = osg.ParseSceneGraph(node.children[child]);
@@ -4564,7 +5814,7 @@ osg.ParseSceneGraph = function (node)
     }
 
     return node;
-}
+};
 
 
 osg.View = function() { osg.Camera.call(this); };
@@ -4582,11 +5832,108 @@ osg.View.prototype = osg.objectInehrit(osg.Camera.prototype, {
     }
 });
 
+osg.WGS_84_RADIUS_EQUATOR = 6378137.0;
+osg.WGS_84_RADIUS_POLAR = 6356752.3142;
 
-osg.createTexuredQuad = function(cornerx, cornery, cornerz,
-                                 wx, wy, wz,
-                                 hx, hy, hz,
-                                 l,b,r,t) {
+osg.EllipsoidModel = function() {
+    this._radiusEquator = osg.WGS_84_RADIUS_EQUATOR;
+    this._radiusPolar = osg.WGS_84_RADIUS_POLAR;
+    this.computeCoefficients();
+};
+osg.EllipsoidModel.prototype = {
+    setRadiusEquator: function(r) { this._radiusEquator = radius; this.computeCoefficients();},
+    getRadiusEquator: function() { return this._radiusEquator;},
+    setRadiusPolar: function(radius) { this._radiusPolar = radius; 
+                                              this.computeCoefficients(); },
+    getRadiusPolar: function() { return this._radiusPolar; },
+    convertLatLongHeightToXYZ: function ( latitude, longitude, height ) {
+        var sin_latitude = Math.sin(latitude);
+        var cos_latitude = Math.cos(latitude);
+        var N = this._radiusEquator / Math.sqrt( 1.0 - this._eccentricitySquared*sin_latitude*sin_latitude);
+        var X = (N+height)*cos_latitude*Math.cos(longitude);
+        var Y = (N+height)*cos_latitude*Math.sin(longitude);
+        var Z = (N*(1-this._eccentricitySquared)+height)*sin_latitude;
+        return [X, Y, Z];
+    },
+    convertXYZToLatLongHeight: function ( X,  Y,  Z ) {
+        // http://www.colorado.edu/geography/gcraft/notes/datum/gif/xyzllh.gif
+        var p = Math.sqrt(X*X + Y*Y);
+        var theta = Math.atan2(Z*this._radiusEquator , (p*this._radiusPolar));
+        var eDashSquared = (this._radiusEquator*this._radiusEquator - this._radiusPolar*this._radiusPolar)/ (this._radiusPolar*this._radiusPolar);
+
+        var sin_theta = Math.sin(theta);
+        var cos_theta = Math.cos(theta);
+
+        latitude = Math.atan( (Z + eDashSquared*this._radiusPolar*sin_theta*sin_theta*sin_theta) /
+                         (p - this._eccentricitySquared*this._radiusEquator*cos_theta*cos_theta*cos_theta) );
+        longitude = Math.atan2(Y,X);
+
+        var sin_latitude = Math.sin(latitude);
+        var N = this._radiusEquator / Math.sqrt( 1.0 - this._eccentricitySquared*sin_latitude*sin_latitude);
+
+        height = p/Math.cos(latitude) - N;
+        return [latitude, longitude, height];
+    },
+    computeLocalUpVector: function(X, Y, Z) {
+        // Note latitude is angle between normal to ellipsoid surface and XY-plane
+        var  latitude, longitude, altitude;
+        var coord = this.convertXYZToLatLongHeight(X,Y,Z,latitude,longitude,altitude);
+        latitude = coord[0];
+        longitude = coord[1];
+        altitude = coord[2];
+
+        // Compute up vector
+        return [ Math.cos(longitude) * Math.cos(latitude),
+                 Math.sin(longitude) * Math.cos(latitude),
+                 Math.sin(latitude) ];
+    },
+    isWGS84: function() { return(this._radiusEquator == osg.WGS_84_RADIUS_EQUATOR && this._radiusPolar == osg.WGS_84_RADIUS_POLAR);},
+
+    computeCoefficients: function() {
+        var flattening = (this._radiusEquator-this._radiusPolar)/this._radiusEquator;
+        this._eccentricitySquared = 2*flattening - flattening*flattening;
+    },
+    computeLocalToWorldTransformFromLatLongHeight : function(latitude, longitude, height) {
+        var pos = this.convertLatLongHeightToXYZ(latitude, longitude, height);
+        var m = osg.Matrix.makeTranslate(pos[0], pos[1], pos[2]);
+        this.computeCoordinateFrame(latitude, longitude, m);
+        return m;
+    },
+    computeLocalToWorldTransformFromXYZ : function(X, Y, Z) {
+        var lla = this.convertXYZToLatLongHeight(X, Y, Z);
+        var m = osg.Matrix.makeTranslate(X, Y, Z);
+        this.computeCoordinateFrame(lla[0], lla[1], m);
+        return m;
+    },
+    computeCoordinateFrame: function ( latitude,  longitude, localToWorld) {
+        // Compute up vector
+        var  up = [ Math.cos(longitude)*Math.cos(latitude), Math.sin(longitude)*Math.cos(latitude), Math.sin(latitude) ];
+
+        // Compute east vector
+        var east = [-Math.sin(longitude), Math.cos(longitude), 0];
+
+        // Compute north vector = outer product up x east
+        var north = osg.Vec3.cross(up,east);
+
+        // set matrix
+        osg.Matrix.set(localToWorld,0,0, east[0]);
+        osg.Matrix.set(localToWorld,0,1, east[1]);
+        osg.Matrix.set(localToWorld,0,2, east[2]);
+
+        osg.Matrix.set(localToWorld,1,0, north[0]);
+        osg.Matrix.set(localToWorld,1,1, north[1]);
+        osg.Matrix.set(localToWorld,1,2, north[2]);
+
+        osg.Matrix.set(localToWorld,2,0, up[0]);
+        osg.Matrix.set(localToWorld,2,1, up[1]);
+        osg.Matrix.set(localToWorld,2,2, up[2]);
+    }
+};
+
+osg.createTexturedQuad = function(cornerx, cornery, cornerz,
+                                  wx, wy, wz,
+                                  hx, hy, hz,
+                                  l,b,r,t) {
 
     if (r === undefined && t === undefined) {
         r = l;
@@ -4614,10 +5961,12 @@ osg.createTexuredQuad = function(cornerx, cornery, cornerz,
     vertexes[10] = cornery + wy + hy;
     vertexes[11] = cornerz + wz + hz;
 
-    if (r === undefined)
+    if (r === undefined) {
         r = 1.0;
-    if (t === undefined)
+    }
+    if (t === undefined) {
         t = 1.0;
+    }
 
     var uvs = [];
     uvs[0] = l;
@@ -4667,4 +6016,4 @@ osg.createTexuredQuad = function(cornerx, cornery, cornerz,
     g.getPrimitives().push(primitive);
     return g;
 };
-osg.createTexturedQuad = osg.createTexuredQuad;
+osg.createTexuredQuad = osg.createTexturedQuad;

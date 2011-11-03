@@ -18,16 +18,18 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  * Authors:
- *  Cedric Pinson <cedric.pinson@plopbyte.net>
+ *  Cedric Pinson <cedric.pinson@plopbyte.com>
  *
  */
 
 var FakeTweets;
 var Socket;
 var LastTweetReceived = new Date();
-var ConnectionTimeoutCheck = 6;
+var ConnectionTimeoutCheck = 10;
 var CheckNetworkTimeout;
+var NbCheckNetworkTimeout = 0;
 var StreamConnected = 0;
+
 function startNetwork() {
     try {
         jQuery('#connection').show();
@@ -44,17 +46,32 @@ function startNetwork() {
                 var elapsed = (now.getTime()-LastTweetReceived.getTime())/1000.0;
                 if (elapsed > ConnectionTimeoutCheck) {
                     //showConnection();
-                    osg.log("no tweets received for " + ConnectionTimeoutCheck +" seconds, restart connection");
-                    startNetwork();
-                    return;
+                    osg.log("no tweets received for " + ConnectionTimeoutCheck +" seconds");
+                    if (NbCheckNetworkTimeout > 3) {
+                        osg.log("no tweets received for " + ConnectionTimeoutCheck*3 +" seconds, restart connection");
+                        if ( Socket !== undefined) {
+                            Socket.connect();
+                        } else {
+                            startNetwork();
+                        }
+                        NbCheckNetworkTimeout = 0;
+                        return;
+                    } else {
+                        showConnection();
+                    }
+                    NbCheckNetworkTimeout += 1;
+                    //startNetwork();
+                    //return;
+                } else {
+                    NbCheckNetworkTimeout = 0;
                 }
                 CheckNetworkTimeout = setTimeout(checkNetwork, ConnectionTimeoutCheck*1000);
             }
         };
 
         // change here to point to your socket.io server
-        var socket = new io.Socket("184.106.112.6",{ port: 22048 }, {transports:['websocket', 'htmlfile', 'xhr-polling']});
-        //var socket = new io.Socket(document.location.hostname);
+        //var socket = new io.Socket("184.106.112.6",{ port: 22048 });
+        var socket = new io.Socket(document.location.hostname, {transports:['websocket', 'flashsocket', 'htmlfile', 'xhr-polling']} );
         Socket = socket;
         socket.connect();
         socket.on('message', function(message){
@@ -63,6 +80,7 @@ function startNetwork() {
             processTweet(message);
         });
         socket.on('connect', function(message){
+            Connected = true;
             StreamConnected += 1;
             if (StreamConnected === 1) {
                 showInstructions();
@@ -73,10 +91,23 @@ function startNetwork() {
             //checkNetwork();
         });
         socket.on('disconnect', function(message){
-            Socket = undefined;
             if (DemoState.running === true) {
                 showConnection();
                 osg.log("disconnect, try to reconnect");
+
+                if ( Socket !== undefined) {
+                    Socket.connect();
+                } else {
+                    startNetwork();
+                }
+            }
+        });
+        socket.on('error', function(message) {
+            osg.log("error, try to reconnect");
+            showConnection();
+            if ( Socket !== undefined) {
+                Socket.connect();
+            } else {
                 startNetwork();
             }
         });
